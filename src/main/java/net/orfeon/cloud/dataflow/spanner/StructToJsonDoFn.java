@@ -74,7 +74,7 @@ public class StructToJsonDoFn extends DoFn<Struct, String> {
                     struct.getTimestampList(field.getName()).stream().map((com.google.cloud.Timestamp::getNanos)).forEach(array::add);
                     obj.add(field.getName(), array);
                 } else {
-                    obj.addProperty(field.getName(), struct.getTimestamp(field.getName()).getNanos());
+                    obj.addProperty(field.getName(), struct.getTimestamp(field.getName()).getSeconds());
                 }
                 break;
             case DATE:

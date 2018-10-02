@@ -24,6 +24,7 @@ time will not be able to be overwritten at execution time.
 
 ```sh
 mvn compile exec:java \
+-Pdataflow-runner \
 -Dexec.mainClass=net.orfeon.cloud.dataflow.templates.<template-class> \
 -Dexec.cleanupDaemonThreads=false \
 -Dexec.args=" \
@@ -52,6 +53,13 @@ gcloud dataflow jobs run <job-name> \
 ## Template Parameters
 
 ### SpannerToText
+
+SpannerToText support json and csv format, and support partition query and single query.
+These settings must be reflected as different template pipeline.
+You can deploy each template pipeline with parameters '--type' and '--single'.
+Parameter '--type' should be set 'json' or 'csv'. (default is 'json')
+Parameter '--single' should be set true or false. (default is false)
+
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
 | projectId       | String | projectID for Spanner you will read.             |
