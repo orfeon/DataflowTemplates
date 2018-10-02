@@ -6,7 +6,7 @@ This templates target use cases that official templates do not cover.
 
 ## Template Pipelines
 
-* [Spanner to GCS CSV/JSON](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToText.java)
+* [Spanner to GCS Text](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToText.java)
 
 ## Getting Started
 
@@ -54,11 +54,16 @@ gcloud dataflow jobs run <job-name> \
 
 ### SpannerToText
 
+SpannerToText's remarkable feature is that user can specify sql to extract record as template parameter.
+Because of template parameter, user can extract record flexibly using template such as daily differential backup from Spanner.
+
 SpannerToText support json and csv format, and support partition query and single query.
 These settings must be reflected as different template pipeline.
+
 You can deploy each template pipeline with parameters '--type' and '--single'.
-Parameter '--type' should be set 'json' or 'csv'. (default is 'json')
-Parameter '--single' should be set true or false. (default is false)
+
+Parameter '--type' should be set 'json' or 'csv' (default is 'json').
+Parameter '--single' should be set true or false (default is false).
 
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|

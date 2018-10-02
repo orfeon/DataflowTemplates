@@ -31,6 +31,11 @@ public class SpannerSimpleIO {
         return new Read(projectId, instanceId, databaseId, query, timestampBound);
     }
 
+    public static ReadSingleQuery readSingle(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
+                            ValueProvider<String> query, ValueProvider<String> timestampBound) {
+        return new ReadSingleQuery(projectId, instanceId, databaseId, query, timestampBound);
+    }
+
     public static class Read extends PTransform<PBegin, PCollection<Struct>> {
 
         private final ValueProvider<String> projectId;
@@ -162,6 +167,91 @@ public class SpannerSimpleIO {
         }
 
     }
+
+    public static class ReadSingleQuery extends PTransform<PBegin, PCollection<Struct>> {
+
+        private final ValueProvider<String> projectId;
+        private final ValueProvider<String> instanceId;
+        private final ValueProvider<String> databaseId;
+        private final ValueProvider<String> query;
+        private final ValueProvider<String> timestampBound;
+
+        private ReadSingleQuery(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
+                                ValueProvider<String> query, ValueProvider<String> timestampBound) {
+            this.projectId = projectId;
+            this.instanceId = instanceId;
+            this.databaseId = databaseId;
+            this.query = query;
+            this.timestampBound = timestampBound;
+        }
+
+        public PCollection<Struct> expand(PBegin begin) {
+            return begin.getPipeline()
+                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()))
+                    .apply("ExecuteQuery", ParDo.of(new QuerySpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.timestampBound)));
+        }
+
+        public class QuerySpannerDoFn extends DoFn<String, Struct> {
+
+            private final Logger log = LoggerFactory.getLogger(QuerySpannerDoFn.class);
+
+            private final ValueProvider<String> projectId;
+            private final ValueProvider<String> instanceId;
+            private final ValueProvider<String> databaseId;
+            private final ValueProvider<String> timestampBound;
+
+            private Spanner spanner;
+            private DatabaseClient client;
+
+            private QuerySpannerDoFn(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId, ValueProvider<String> timestampBound) {
+                this.projectId = projectId;
+                this.instanceId = instanceId;
+                this.databaseId = databaseId;
+                this.timestampBound = timestampBound;
+            }
+
+            @Setup
+            public void setup() throws Exception {
+                final SpannerOptions options = getDefaultInstance();
+                this.spanner = options.getService();
+                this.client = spanner.getDatabaseClient(DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
+            }
+
+            @ProcessElement
+            public void processElement(ProcessContext c) {
+                final String query = c.element();
+                final String timestampBoundString = this.timestampBound.get();
+                log.info(String.format("Received query [%s], timestamp bound [%s]", query, timestampBoundString));
+                final Statement statement = Statement.of(query);
+
+                final TimestampBound tb;
+                if(timestampBoundString == null) {
+                    tb = TimestampBound.strong();
+                } else {
+                    final Instant instant = Instant.parse(timestampBoundString);
+                    final com.google.cloud.Timestamp timestamp = com.google.cloud.Timestamp.ofTimeMicroseconds(instant.getMillis() * 1000);
+                    tb = TimestampBound.ofReadTimestamp(timestamp);
+                }
+
+                final ResultSet resultSet = this.client.singleUseReadOnlyTransaction(tb).executeQuery(statement);
+                log.info(String.format("Query [%s] (with timestamp bound [%s]).", query, tb));
+                int count = 0;
+                while(resultSet.next()) {
+                    c.output(resultSet.getCurrentRowAsStruct());
+                    count++;
+                }
+                log.info(String.format("Query read record num [%d]", count));
+            }
+
+            @Teardown
+            public void teardown() throws Exception {
+                this.spanner.close();
+            }
+
+        }
+
+    }
+
 
     public static class Write extends PTransform<PCollection<MutationGroup>, SpannerWriteResult> {
 
