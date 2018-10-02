@@ -6,7 +6,7 @@ This templates target use cases that official templates do not cover.
 
 ## Template Pipelines
 
-* [Spanner to GCS CSV/JSON](src/main/java/net/orfeon/cloud/dataflow/templates/spanner/SpannerToText.java)
+* [Spanner to GCS CSV/JSON](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToText.java)
 
 ## Getting Started
 
@@ -59,8 +59,10 @@ gcloud dataflow jobs run <job-name> \
 | databaseId      | String | Spanner databaseID you will read.                |
 | query           | String | SQL query to read record from Spanner            |
 | output          | String | GCS path to output. prefix must start with gs:// |
-| timestampBound  | String | (Optional) timestamp bound. default is strong.   |
+| timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
 
 * Query must be root partitionable, that must have a DistributedUnion at the root.
-For example, order by, limit operation can not have DistributedUnion at the root.
-Please run EXPLAIN for query plan details before run template.
+For example, query that includes 'order by', 'limit' operation can not have DistributedUnion at the root.
+Please run EXPLAIN for query plan details before running template.
+* [timestampBound](https://cloud.google.com/spanner/docs/timestamp-bounds) must be within one hour.
+* timestampBound format example in japan: '2018-10-01T18:00:00+09:00'.
