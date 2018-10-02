@@ -83,7 +83,7 @@ public class StructToJsonDoFn extends DoFn<Struct, String> {
                     struct.getDateList(field.getName()).stream().map((Date date) -> date.toString()).forEach(array::add);
                     obj.add(field.getName(), array);
                 } else {
-                    obj.addProperty(field.getName(), struct.getBytes(field.getName()).toBase64());
+                    obj.addProperty(field.getName(), struct.getDate(field.getName()).toString());
                 }
                 break;
             case STRUCT:
@@ -99,7 +99,7 @@ public class StructToJsonDoFn extends DoFn<Struct, String> {
                 break;
             case ARRAY:
                 setFieldValue(obj, field, struct, true);
-                return;
+                break;
         }
     }
 
