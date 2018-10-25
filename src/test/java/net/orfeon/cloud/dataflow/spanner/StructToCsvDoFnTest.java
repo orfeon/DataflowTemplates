@@ -27,17 +27,17 @@ public class StructToCsvDoFnTest {
     @Test
     public void test() {
         Struct struct1 = Struct.newBuilder()
-                .add("bool", Value.bool(true))
-                .add("int", Value.int64(12))
-                .add("string", Value.string("string"))
-                .add("float", Value.float64(10.12))
+                .set("bool").to(true)
+                .set("int").to(12)
+                .set("string").to("string")
+                .set("float").to(10.12)
                 //.add("", Value.timestamp(Timestamp.from()))
                 .build();
         Struct struct2 = Struct.newBuilder()
-                .add("bool", Value.bool(false))
-                .add("int", Value.int64(-10))
-                .add("string", Value.string("this is a pen!"))
-                .add("float", Value.float64(0.12))
+                .set("bool").to(false)
+                .set("int").to(-10)
+                .set("string").to("this is a pen!")
+                .set("float").to(0.12)
                 //.add("", Value.timestamp(Timestamp.from()))
                 .build();
 

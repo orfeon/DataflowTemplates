@@ -28,18 +28,18 @@ public class StructToJsonDoFnTest {
     @Test
     public void test() {
         Struct struct1 = Struct.newBuilder()
-                .add("bool", Value.bool(true))
-                .add("int", Value.int64(12))
-                .add("string", Value.string("string"))
-                .add("float", Value.float64(10.12))
-                .add("timestamp", Value.timestamp(Timestamp.parseTimestamp("2018-01-19T03:24:13Z")))
+                .set("bool").to(true)
+                .set("int").to(12)
+                .set("string").to("string")
+                .set("float").to(10.12)
+                .set("timestamp").to(Timestamp.parseTimestamp("2018-01-19T03:24:13Z"))
                 .build();
         Struct struct2 = Struct.newBuilder()
-                .add("bool", Value.bool(false))
-                .add("int", Value.int64(-10))
-                .add("string", Value.string("this is a pen!"))
-                .add("float", Value.float64(0.12))
-                .add("timestamp", Value.timestamp(Timestamp.parseTimestamp("2018-10-01T12:00:00Z")))
+                .set("bool").to(false)
+                .set("int").to(-10)
+                .set("string").to("this is a pen!")
+                .set("float").to(0.12)
+                .set("timestamp").to(Timestamp.parseTimestamp("2018-10-01T12:00:00Z"))
                 .build();
 
 

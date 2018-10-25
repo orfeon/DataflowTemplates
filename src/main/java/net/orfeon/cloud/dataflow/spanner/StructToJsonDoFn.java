@@ -62,7 +62,7 @@ public class StructToJsonDoFn extends DoFn<Struct, String> {
             case BYTES:
                 if(isListField) {
                     JsonArray array = new JsonArray();
-                    struct.getBytesList(field.getName()).stream().map((ByteArray::toBase64)).forEach(array::add);
+                    struct.getBytesList(field.getName()).stream().map(ByteArray::toBase64).forEach(array::add);
                     obj.add(field.getName(), array);
                 } else {
                     obj.addProperty(field.getName(), struct.getBytes(field.getName()).toBase64());
@@ -71,7 +71,7 @@ public class StructToJsonDoFn extends DoFn<Struct, String> {
             case TIMESTAMP:
                 if(isListField) {
                     JsonArray array = new JsonArray();
-                    struct.getTimestampList(field.getName()).stream().map((com.google.cloud.Timestamp::getNanos)).forEach(array::add);
+                    struct.getTimestampList(field.getName()).stream().map(com.google.cloud.Timestamp::getSeconds).forEach(array::add);
                     obj.add(field.getName(), array);
                 } else {
                     obj.addProperty(field.getName(), struct.getTimestamp(field.getName()).getSeconds());
