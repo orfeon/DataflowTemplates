@@ -27,7 +27,7 @@
   <packaging>jar</packaging>
 
   <properties>
-    <beam.version>2.6.0</beam.version>
+    <beam.version>2.7.0</beam.version>
 
     <bigquery.version>v2-rev374-1.23.0</bigquery.version>
     <google-clients.version>1.23.0</google-clients.version>
@@ -455,6 +455,34 @@
       <groupId>com.google.api.grpc</groupId>
       <artifactId>grpc-google-common-protos</artifactId>
       <version>1.12.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-bigquery -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-bigquery</artifactId>
+      <version>1.49.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-core -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-core</artifactId>
+      <version>1.49.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-bigquery -->
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-bigquery</artifactId>
+      <version>v2-rev409-1.25.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-spanner -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-spanner</artifactId>
+      <version>0.67.0-beta</version>
     </dependency>
 
   </dependencies>
