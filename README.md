@@ -7,6 +7,7 @@ This templates target use cases that official templates do not cover.
 ## Template Pipelines
 
 * [Spanner to GCS Text](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToText.java)
+* [Spanner to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToAvro.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 
 ## Getting Started
@@ -81,6 +82,27 @@ Please run EXPLAIN for query plan details before running template.
 * If you want to use non partitionable query, use single query template pipeline (set option --single=true when deploying template).
 * [timestampBound](https://cloud.google.com/spanner/docs/timestamp-bounds) must be within one hour.
 * timestampBound format example in japan: '2018-10-01T18:00:00+09:00'.
+
+### SpannerToAvro
+
+SpannerToAvro's feature is that user can specify sql to extract record as template parameter.
+Template parameters are same as SpannerToText.
+
+You can deploy each template pipeline with parameters '--single'.
+
+Parameter '--single' should be set true or false (default is false).
+
+| Parameter       | Type   | Description                                      |
+|-----------------|--------|--------------------------------------------------|
+| projectId       | String | projectID for Spanner you will read.             |
+| instanceId      | String | Spanner instanceID you will read.                |
+| databaseId      | String | Spanner databaseID you will read.                |
+| query           | String | SQL query to read record from Spanner            |
+| output          | String | GCS path to output. prefix must start with gs:// |
+| fieldKey        | String | (Optional) Query result field to store avro file separately |
+| timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* Some spanner data type will be converted. Date will be converted to String (yyyy-MM-dd), Timestamp will be converted to epoch second (Int64).
 
 ### SpannerToBigQuery
 
