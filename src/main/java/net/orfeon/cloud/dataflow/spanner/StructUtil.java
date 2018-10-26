@@ -2,6 +2,7 @@ package net.orfeon.cloud.dataflow.spanner;
 
 import com.google.cloud.ByteArray;
 import com.google.cloud.Date;
+import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
 import com.google.gson.JsonArray;
@@ -32,6 +33,71 @@ public class StructUtil {
             setJsonFieldValue(obj, field, struct);
         }
         return obj.toString();
+    }
+
+    public static Mutation toMutation(Struct struct, String table) {
+        Mutation.WriteBuilder builder = Mutation.newInsertOrUpdateBuilder(table);
+        for(Type.StructField field : struct.getType().getStructFields()) {
+            switch(field.getType().getCode()) {
+                case STRING:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getString(field.getName()));
+                    break;
+                case BYTES:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getBytes(field.getName()));
+                    break;
+                case BOOL:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getBoolean(field.getName()));
+                    break;
+                case INT64:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getLong(field.getName()));
+                    break;
+                case FLOAT64:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getDouble(field.getName()));
+                    break;
+                case DATE:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getDate(field.getName()));
+                    break;
+                case TIMESTAMP:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()));
+                    break;
+                case STRUCT:
+                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getStruct(field.getName()));
+                    break;
+                case ARRAY:
+                    switch (field.getType().getArrayElementType().getCode()) {
+                        case STRING:
+                            builder = builder.set(field.getName()).toStringArray(struct.isNull(field.getName()) ? null : struct.getStringList(field.getName()));
+                            break;
+                        case BYTES:
+                            builder = builder.set(field.getName()).toBytesArray(struct.isNull(field.getName()) ? null : struct.getBytesList(field.getName()));
+                            break;
+                        case BOOL:
+                            builder = builder.set(field.getName()).toBoolArray(struct.isNull(field.getName()) ? null : struct.getBooleanArray(field.getName()));
+                            break;
+                        case INT64:
+                            builder = builder.set(field.getName()).toInt64Array(struct.isNull(field.getName()) ? null : struct.getLongArray(field.getName()));
+                            break;
+                        case FLOAT64:
+                            builder = builder.set(field.getName()).toFloat64Array(struct.isNull(field.getName()) ? null : struct.getDoubleArray(field.getName()));
+                            break;
+                        case DATE:
+                            builder = builder.set(field.getName()).toDateArray(struct.isNull(field.getName()) ? null : struct.getDateList(field.getName()));
+                            break;
+                        case TIMESTAMP:
+                            builder = builder.set(field.getName()).toTimestampArray(struct.isNull(field.getName()) ? null : struct.getTimestampList(field.getName()));
+                            break;
+                        case STRUCT:
+                            // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2018/10/26)
+                            //builder = builder.set(field.getName()).toStructArray(struct.getStructList(field.getName()));
+                            break;
+                        case ARRAY:
+                            // NOT SUPPOERTED TO STORE ARRAY IN ARRAY FIELD! (2018/10/26)
+                            break;
+                    }
+
+            }
+        }
+        return builder.build();
     }
 
     public static Object getFieldValue(String fieldName, Struct struct) {
