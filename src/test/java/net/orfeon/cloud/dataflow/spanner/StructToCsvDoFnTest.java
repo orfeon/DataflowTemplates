@@ -1,7 +1,6 @@
 package net.orfeon.cloud.dataflow.spanner;
 
 import com.google.cloud.spanner.Struct;
-import com.google.cloud.spanner.Value;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Create;

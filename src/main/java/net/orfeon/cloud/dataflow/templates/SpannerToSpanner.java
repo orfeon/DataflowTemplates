@@ -2,7 +2,6 @@ package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
 import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToAvroTransform;
 import net.orfeon.cloud.dataflow.spanner.StructToMutationDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.spanner.SpannerIO;

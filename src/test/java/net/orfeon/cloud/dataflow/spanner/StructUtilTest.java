@@ -4,7 +4,6 @@ import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
-import com.google.cloud.spanner.Type;
 import com.google.cloud.spanner.Value;
 import org.joda.time.Instant;
 import org.junit.Assert;

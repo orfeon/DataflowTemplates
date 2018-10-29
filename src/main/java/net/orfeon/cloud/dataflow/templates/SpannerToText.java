@@ -5,7 +5,6 @@ import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
 import net.orfeon.cloud.dataflow.spanner.StructToCsvDoFn;
 import net.orfeon.cloud.dataflow.spanner.StructToJsonDoFn;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.*;
 import org.apache.beam.sdk.transforms.DoFn;
