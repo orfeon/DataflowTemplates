@@ -10,6 +10,7 @@ This templates target use cases that official templates do not cover.
 * [Spanner to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToAvro.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
+* [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 
 ## Getting Started
 
@@ -84,6 +85,7 @@ Please run EXPLAIN for query plan details before running template.
 * [timestampBound](https://cloud.google.com/spanner/docs/timestamp-bounds) must be within one hour.
 * timestampBound format example in japan: '2018-10-01T18:00:00+09:00'.
 
+
 ### SpannerToAvro
 
 SpannerToAvro's feature is that user can specify sql to extract record as template parameter.
@@ -120,6 +122,7 @@ Template parameters are same as SpannerToText.
 | table           | String | Spanner table name to insert records.            |
 | input           | String | GCS path for avro files. prefix must start with gs:// |
 
+
 ### SpannerToBigQuery
 
 SpannerToBigQuery's feature is that user can specify sql to extract record as template parameter.
@@ -133,4 +136,22 @@ BigQuery destination table must be created.
 | databaseId      | String | Spanner databaseID you will read.                |
 | query           | String | SQL query to read record from Spanner            |
 | output          | String | Destination BigQuery table. format {dataset}.{table} |
+| timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+
+### SpannerToSpanner
+
+SpannerToSpanner enables you to query from some Spanner table and write results to specified Spanner table using template.
+Template parameters are same as SpannerToText.
+
+| Parameter       | Type   | Description                                        |
+|-----------------|--------|----------------------------------------------------|
+| inputProjectId  | String | projectID for Spanner you will read.               |
+| inputInstanceId | String | Spanner instanceID you will read.                  |
+| inputDatabaseId | String | Spanner databaseID you will read.                  |
+| query           | String | SQL query to read record from Spanner              |
+| outputProjectId | String | projectID for Spanner you will write query result. |
+| outputInstanceId| String | Spanner instanceID you will write query result.    |
+| outputDatabaseId| String | Spanner databaseID you will write query result.    |
+| outputTable     | String | Spanner table name will write query result.        |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
