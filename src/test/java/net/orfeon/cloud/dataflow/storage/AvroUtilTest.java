@@ -5,11 +5,15 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
 import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.joda.time.*;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
@@ -73,11 +77,16 @@ public class AvroUtilTest {
                 .set("df").to(date2)
                 .set("tf").to(timestamp2)
                 .set("nf").to((String)null)
+                .set("lnf").to((Long)null)
+                .set("dnf").to((Date)null)
+                .set("tnf").to((Timestamp)null)
                 .set("rf").to(struct1)
                 .set("arf").toStructArray(Type.struct(f1,f2, f3, f4, f5, f6), Arrays.asList(struct1))
                 .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
                 .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
                 .set("adf").toDateArray(Arrays.asList(date1, date2))
+                .set("anf").toInt64Array((List<Long>)null)
+                .set("amf").toInt64Array(Arrays.asList(null, 2L, 3L))
                 .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
                 .build();
 
@@ -95,6 +104,11 @@ public class AvroUtilTest {
         Assert.assertEquals(timestamp2.getSeconds()*1000, r.get("tf"));
 
         Assert.assertArrayEquals(new Long[]{1L, 2L, 3L}, ((List<Long>)(r.get("aif"))).toArray());
+        Assert.assertNull(r.get("lnf"));
+        Assert.assertNull(r.get("dnf"));
+        Assert.assertNull(r.get("tnf"));
+        Assert.assertNull(r.get("anf"));
+        Assert.assertArrayEquals(new Long[]{null, 2L, 3L}, ((List<Long>)(r.get("amf"))).toArray());
         Assert.assertArrayEquals(new String[]{"a", "b", "c"}, ((List<String>)(r.get("asf"))).toArray());
         Assert.assertArrayEquals(new Integer[]{getEpochDays(date1), getEpochDays(date2)}, ((List<String>)(r.get("adf"))).toArray());
         Assert.assertArrayEquals(new Long[]{timestamp1.getSeconds()*1000, timestamp2.getSeconds()*1000}, ((List<Long>)(r.get("atf"))).toArray());
@@ -129,6 +143,7 @@ public class AvroUtilTest {
         Assert.assertArrayEquals(struct2.getLongArray("aif"), struct3.getLongArray("aif"));
         Assert.assertArrayEquals(struct2.getStringList("asf").toArray(), struct3.getStringList("asf").toArray());
         Assert.assertArrayEquals(struct2.getDateList("adf").toArray(), struct3.getDateList("adf").toArray());
+        Assert.assertArrayEquals(struct2.getLongList("amf").toArray(), struct3.getLongList("amf").toArray());
         Assert.assertArrayEquals(struct2.getTimestampList("atf").toArray(), struct3.getTimestampList("atf").toArray());
     }
 
