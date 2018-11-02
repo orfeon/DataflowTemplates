@@ -43,6 +43,11 @@ public class SpannerToAvro {
         ValueProvider<String> getFieldKey();
         void setFieldKey(ValueProvider<String> fieldKey);
 
+        @Description("Use snappy or default codec")
+        @Default.Boolean(true)
+        ValueProvider<Boolean> getUseSnappy();
+        void setUseSnappy(ValueProvider<Boolean> useSnappy);
+
         @Description("(Optional) Input timestamp bound as format 'yyyy-MM-ddTHH:mm:SSZ'")
         ValueProvider<String> getTimestampBound();
         void setTimestampBound(ValueProvider<String> timestampBound);
@@ -58,7 +63,7 @@ public class SpannerToAvro {
 
         Pipeline pipeline = Pipeline.create(options);
         pipeline.apply("QuerySpanner", spannerIO)
-                .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey()));
+                .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey(), options.getUseSnappy()));
 
         pipeline.run();
     }

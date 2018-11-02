@@ -81,10 +81,11 @@ public class StructToAvroTransformTest {
 
         final ValueProvider<String> output = ValueProvider.StaticValueProvider.of(outputDir.getPath());
         final ValueProvider<String> key = ValueProvider.StaticValueProvider.of(null);
+        final ValueProvider<Boolean> useSnappy = ValueProvider.StaticValueProvider.of(true);
 
         final Pipeline pipeline = Pipeline.create();
         pipeline.apply("CreateDummy", Create.of(struct1, struct2))
-                .apply("TransformAndStore", new StructToAvroTransform(output, key));
+                .apply("TransformAndStore", new StructToAvroTransform(output, key, useSnappy));
 
         pipeline.run();
 
@@ -146,10 +147,11 @@ public class StructToAvroTransformTest {
 
         final ValueProvider<String> output = ValueProvider.StaticValueProvider.of(outputDir.getPath());
         final ValueProvider<String> key = ValueProvider.StaticValueProvider.of("key");
+        final ValueProvider<Boolean> useSnappy = ValueProvider.StaticValueProvider.of(true);
 
         final Pipeline pipeline = Pipeline.create();
         pipeline.apply("CreateDummy", Create.of(struct1, struct2))
-                .apply("TransformAndStore", new StructToAvroTransform(output, key));
+                .apply("TransformAndStore", new StructToAvroTransform(output, key, useSnappy));
 
         pipeline.run();
 

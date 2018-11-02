@@ -3,6 +3,7 @@ package net.orfeon.cloud.dataflow.spanner;
 import com.google.cloud.spanner.Struct;
 import net.orfeon.cloud.dataflow.storage.AvroUtil;
 import org.apache.avro.Schema;
+import org.apache.avro.file.CodecFactory;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.AvroIO;
 import org.apache.beam.sdk.io.FileIO;
@@ -24,10 +25,12 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
 
     private final ValueProvider<String> output;
     private final ValueProvider<String> keyField;
+    private final ValueProvider<Boolean> useSnappy;
 
-    public StructToAvroTransform(ValueProvider<String> output, ValueProvider<String> keyField) {
+    public StructToAvroTransform(ValueProvider<String> output, ValueProvider<String> keyField, ValueProvider<Boolean> useSnappy) {
         this.output = output;
         this.keyField = keyField;
+        this.useSnappy = useSnappy;
     }
 
     public final PDone expand(PCollection<Struct> input) {
@@ -72,7 +75,14 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                             }
                             final Struct struct = sampleStruct.get(key).iterator().next();
                             final Schema schema = AvroUtil.convertSchemaFromStruct(struct);
-                            return AvroIO.sinkViaGenericRecords(schema, (rstruct, rschema) -> AvroUtil.convertGenericRecord(rstruct.getValue(), rschema));
+                            final AvroIO.Sink<KV<String,Struct>> avroSink = AvroIO
+                                    .sinkViaGenericRecords(schema,
+                                            (KV<String, Struct> rstruct, Schema rschema) ->
+                                                    AvroUtil.convertGenericRecord(rstruct.getValue(), rschema));
+                            if(useSnappy.get()) {
+                                return avroSink.withCodec(CodecFactory.snappyCodec());
+                            }
+                            return avroSink;
                         }, Requirements.requiresSideInputs(schemaView)))
                         .withNaming(key -> FileIO.Write.defaultNaming(DEFAULT_KEY.equals(key) ? "" : key, ".avro"))
                         .to(this.output)

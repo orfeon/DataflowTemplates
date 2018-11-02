@@ -5,15 +5,11 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
 import org.joda.time.*;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
