@@ -27,7 +27,7 @@
   <packaging>jar</packaging>
 
   <properties>
-    <beam.version>2.7.0</beam.version>
+    <beam.version>2.8.0</beam.version>
 
     <bigquery.version>v2-rev374-1.23.0</bigquery.version>
     <google-clients.version>1.23.0</google-clients.version>
