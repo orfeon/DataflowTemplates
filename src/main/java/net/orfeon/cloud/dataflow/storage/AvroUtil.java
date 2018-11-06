@@ -476,4 +476,5 @@ public class AvroUtil {
                 return builder;
         }
     }
+
 }

@@ -2,12 +2,16 @@ package net.orfeon.cloud.dataflow.spanner;
 
 import com.google.cloud.ByteArray;
 import com.google.cloud.Date;
+import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.sql.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,6 +99,120 @@ public class StructUtil {
                             break;
                     }
 
+            }
+        }
+        return builder.build();
+    }
+
+    public static Struct from(ResultSet resultSet) throws SQLException {
+        final ResultSetMetaData meta = resultSet.getMetaData();
+        final int columnCount = meta.getColumnCount();
+        Struct.Builder builder = Struct.newBuilder();
+        for (int column = 1; column <= columnCount; ++column) {
+            switch (meta.getColumnType(column)) {
+                case Types.CHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    break;
+                case Types.NUMERIC:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBigDecimal(column).doubleValue());
+                    break;
+                case Types.DECIMAL:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBigDecimal(column).doubleValue());
+                    break;
+                case Types.INTEGER:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getInt(column));
+                    break;
+                case Types.SMALLINT:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getShort(column));
+                    break;
+                case Types.FLOAT:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getFloat(column));
+                    break;
+                case Types.REAL:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getFloat(column));
+                    break;
+                case Types.DOUBLE:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getDouble(column));
+                    break;
+                case Types.VARCHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    break;
+                case Types.BOOLEAN:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBoolean(column));
+                    break;
+                case Types.DATALINK:
+                    break;
+                case Types.DATE:
+                    final LocalDate localDate = resultSet.getDate(column).toLocalDate();
+                    builder = builder.set(meta.getColumnName(column)).to(Date.fromYearMonthDay(localDate.getYear(), localDate.getMonthValue(), localDate.getDayOfMonth()));
+                    break;
+                case Types.TIME:
+                    final Time time = resultSet.getTime(column);
+                    builder = builder.set(meta.getColumnName(column)).to(time.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
+                    break;
+                case Types.TIMESTAMP:
+                    builder = builder.set(meta.getColumnName(column)).to(Timestamp.of(resultSet.getTimestamp(column)));
+                    break;
+                case Types.JAVA_OBJECT:
+                    break;
+                case Types.DISTINCT:
+                    break;
+                case Types.STRUCT:
+                    break;
+                case Types.ARRAY:
+                    break;
+                case Types.BLOB:
+                    break;
+                case Types.CLOB:
+                    break;
+                case Types.REF:
+                    break;
+                case Types.SQLXML:
+                    break;
+                case Types.NCLOB:
+                    break;
+                case Types.REF_CURSOR:
+                    break;
+                case Types.TIME_WITH_TIMEZONE:
+                    final Time timeWT = resultSet.getTime(column);
+                    builder = builder.set(meta.getColumnName(column)).to(timeWT.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
+                    break;
+                case Types.TIMESTAMP_WITH_TIMEZONE:
+                    builder = builder.set(meta.getColumnName(column)).to(Timestamp.of(resultSet.getTimestamp(column)));
+                    break;
+                case Types.LONGVARCHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    break;
+                case Types.BINARY:
+                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    break;
+                case Types.VARBINARY:
+                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    break;
+                case Types.LONGVARBINARY:
+                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    break;
+                case Types.BIGINT:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getLong(column));
+                    break;
+                case Types.TINYINT:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getByte(column));
+                    break;
+                case Types.BIT:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBoolean(column));
+                    break;
+                case Types.ROWID:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getRowId(column).toString());
+                    break;
+                case Types.NVARCHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    break;
+                case Types.NCHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    break;
+                case Types.LONGNVARCHAR:
+                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    break;
             }
         }
         return builder.build();

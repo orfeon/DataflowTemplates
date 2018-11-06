@@ -11,6 +11,7 @@ This templates target use cases that official templates do not cover.
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
+* [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
 
 ## Getting Started
 
@@ -155,3 +156,19 @@ Template parameters are same as SpannerToText.
 | outputDatabaseId| String | Spanner databaseID you will write query result.    |
 | outputTable     | String | Spanner table name will write query result.        |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+
+### JdbcToAvro
+
+JdbcToAvro can read data from Jdbc using free SQL and save it in Avro format.
+
+| Parameter       | Type   | Description                                      |
+|-----------------|--------|--------------------------------------------------|
+| query           | String | SQL query to read record from Database           |
+| driverClass     | String | `com.mysql.cj.jdbc.Driver` or `org.postgresql.Driver`.|
+| connectionString| String | DB url, `{projectID}:{region}:{instanceID}.{databaseName}`.|
+| username        | String | Database username to access. |
+| password        | String | Database access user's password. |
+| output          | String | GCS path to output. prefix must start with gs:// |
+
+* SQL data type will be converted as [this code](src/main/java/net/orfeon/cloud/dataflow/spanner/StructUtil.java#L107)
