@@ -8,7 +8,10 @@ import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 
+import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -16,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class StructUtil {
 
@@ -37,6 +41,19 @@ public class StructUtil {
             setJsonFieldValue(obj, field, struct);
         }
         return obj.toString();
+    }
+
+    public static String toCsvLine(Struct struct) throws IOException {
+        List<Object> objs = struct.getType().getStructFields()
+                .stream()
+                .map((Type.StructField field) -> StructUtil.getFieldValue(field, struct))
+                .collect(Collectors.toList());
+        StringBuilder sb = new StringBuilder();
+        try(CSVPrinter printer = new CSVPrinter(sb, CSVFormat.DEFAULT)) {
+            printer.printRecord(objs);
+            printer.flush();
+            return sb.toString().trim();
+        }
     }
 
     public static Mutation toMutation(Struct struct, String table) {
@@ -227,7 +244,10 @@ public class StructUtil {
         return null;
     }
 
-    private static Object getFieldValue(Type.StructField field, Struct struct) {
+    public static Object getFieldValue(Type.StructField field, Struct struct) {
+        if(struct.isNull(field.getName())) {
+            return null;
+        }
         switch (field.getType().getCode()) {
             case BOOL:
                 return struct.getBoolean(field.getName());
@@ -240,7 +260,7 @@ public class StructUtil {
             case BYTES:
                 return struct.getBytes(field.getName()).toBase64();
             case TIMESTAMP:
-                return struct.getTimestamp(field.getName()).getSeconds();
+                return struct.getTimestamp(field.getName()).getSeconds() * 1000;
             case DATE:
                 return struct.getDate(field.getName());
             case STRUCT:
@@ -275,7 +295,7 @@ public class StructUtil {
                     struct.getBytesList(field.getName()).stream().map((ByteArray::toBase64)).forEach(list::add);
                     return list;
             case TIMESTAMP:
-                    struct.getTimestampList(field.getName()).stream().map((com.google.cloud.Timestamp::getSeconds)).forEach(list::add);
+                    struct.getTimestampList(field.getName()).stream().map(t -> t.getSeconds() * 1000).forEach(list::add);
                     return list;
             case DATE:
                     struct.getDateList(field.getName()).stream().map((Date date) -> date.toString()).forEach(list::add);
@@ -299,27 +319,31 @@ public class StructUtil {
     private static void setJsonFieldValue(JsonObject obj, Type.StructField field, Struct struct) {
         switch (field.getType().getCode()) {
             case BOOL:
-                    obj.addProperty(field.getName(), struct.getBoolean(field.getName()));
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getBoolean(field.getName()));
                 break;
             case INT64:
-                    obj.addProperty(field.getName(), struct.getLong(field.getName()));
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getLong(field.getName()));
                 break;
             case FLOAT64:
-                    obj.addProperty(field.getName(), struct.getDouble(field.getName()));
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getDouble(field.getName()));
                 break;
             case STRING:
-                    obj.addProperty(field.getName(), struct.getString(field.getName()));
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getString(field.getName()));
                 break;
             case BYTES:
-                    obj.addProperty(field.getName(), struct.getBytes(field.getName()).toBase64());
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getBytes(field.getName()).toBase64());
                 break;
             case TIMESTAMP:
-                    obj.addProperty(field.getName(), struct.getTimestamp(field.getName()).getSeconds());
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()).getSeconds() * 1000);
                 break;
             case DATE:
-                    obj.addProperty(field.getName(), struct.getDate(field.getName()).toString());
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getDate(field.getName()).toString());
                 break;
             case STRUCT:
+                if(struct.isNull(field.getName())) {
+                    obj.add(field.getName(), null);
+                    return;
+                }
                 Struct childStruct = struct.getStruct(field.getName());
                 JsonObject childObj = new JsonObject();
                 for(Type.StructField childField : childStruct.getType().getStructFields()) {
@@ -334,6 +358,10 @@ public class StructUtil {
     }
 
     private static void setJsonArrayFieldValue(JsonObject obj, Type.StructField field, Struct struct) {
+        if(struct.isNull(field.getName())) {
+            obj.add(field.getName(), null);
+            return;
+        }
         JsonArray array = new JsonArray();
         switch (field.getType().getArrayElementType().getCode()) {
             case BOOL:
@@ -357,7 +385,7 @@ public class StructUtil {
                 obj.add(field.getName(), array);
                 break;
             case TIMESTAMP:
-                struct.getTimestampList(field.getName()).stream().map(com.google.cloud.Timestamp::getSeconds).forEach(array::add);
+                struct.getTimestampList(field.getName()).stream().map(s -> s.getSeconds() * 1000).forEach(array::add);
                 obj.add(field.getName(), array);
                 break;
             case DATE:

@@ -15,7 +15,7 @@ import java.util.Map;
 public class StructUtilTest {
 
     @Test
-    public void test() {
+    public void testToMutation() {
 
         Date date1 = Date.fromYearMonthDay(2018, 9, 1);
         Date date2 = Date.fromYearMonthDay(2018, 10, 1);
@@ -61,7 +61,37 @@ public class StructUtilTest {
         Assert.assertTrue(map.get("nff").isNull());
         Assert.assertTrue(map.get("ndf").isNull());
         Assert.assertTrue(map.get("ntf").isNull());
+    }
 
+    @Test
+    public void testToJson() {
+        Date date1 = Date.fromYearMonthDay(2018, 9, 1);
+        Date date2 = Date.fromYearMonthDay(2018, 10, 1);
+        String str1 = "2018-09-01T12:00+09:00";
+        String str2 = "2018-10-01T12:00+09:00";
+        Instant instant1 = Instant.parse(str1);
+        Instant instant2 = Instant.parse(str2);
+        Timestamp timestamp1 = Timestamp.ofTimeMicroseconds(instant1.getMillis() * 1000);
+        Timestamp timestamp2 = Timestamp.ofTimeMicroseconds(instant2.getMillis() * 1000);
 
+        Struct struct = Struct.newBuilder()
+                .set("bf").to(false)
+                .set("if").to(-12)
+                .set("ff").to(110.005)
+                .set("sf").to("I am a pen")
+                .set("df").to(date2)
+                .set("tf").to(timestamp2)
+                .set("nsf").to((String)null)
+                .set("nff").to((Double)null)
+                .set("ndf").to((Date)null)
+                .set("ntf").to((Timestamp)null)
+                .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
+                .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
+                .set("adf").toDateArray(Arrays.asList(date1, date2))
+                .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
+                .build();
+
+        String json = StructUtil.toJson(struct);
+        Assert.assertEquals("{\"bf\":false,\"if\":-12,\"ff\":110.005,\"sf\":\"I am a pen\",\"df\":\"2018-10-01\",\"tf\":1538362800000,\"nsf\":null,\"nff\":null,\"ndf\":null,\"ntf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"adf\":[\"2018-09-01\",\"2018-10-01\"],\"atf\":[1535770800,1538362800]}", json);
     }
 }

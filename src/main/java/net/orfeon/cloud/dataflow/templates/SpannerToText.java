@@ -2,12 +2,10 @@ package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
 import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToCsvDoFn;
-import net.orfeon.cloud.dataflow.spanner.StructToJsonDoFn;
+import net.orfeon.cloud.dataflow.spanner.StructToTextDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.*;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PBegin;
@@ -17,17 +15,15 @@ public class SpannerToText {
 
     public interface SpannerToTextPipelineOption extends PipelineOptions {
 
-        @Description("Format type, choose csv or json")
-        @Default.String("json")
-        @Validation.Required
-        String getType();
-        void setType(String type);
-
         @Description("Use single process query or parallel process query.")
         @Default.Boolean(false)
         @Validation.Required
         Boolean getSingle();
         void setSingle(Boolean type);
+
+        @Description("Format type, choose csv or json. default is json.")
+        ValueProvider<String> getType();
+        void setType(ValueProvider<String> type);
 
         @Description("Project id spanner instance belong to")
         ValueProvider<String> getProjectId();
@@ -62,13 +58,10 @@ public class SpannerToText {
                 SpannerSimpleIO.readSingle(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound()) :
                 SpannerSimpleIO.read(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound());
 
-        DoFn<Struct, String> textConverter = "json".equals(options.getType().toLowerCase()) ? new StructToJsonDoFn() : new StructToCsvDoFn();
-        String suffix = "json".equals(options.getType().toLowerCase()) ? ".json" : ".csv";
-
         Pipeline pipeline = Pipeline.create(options);
         pipeline.apply("ReadSpanner", spannerIO)
-                .apply("ConvertLine", ParDo.of(textConverter))
-                .apply("StoreStorage", TextIO.write().to(options.getOutput()).withSuffix(suffix));
+                .apply("ConvertLine", ParDo.of(new StructToTextDoFn(options.getType())))
+                .apply("StoreStorage", TextIO.write().to(options.getOutput()).withSuffix(".txt"));
 
         pipeline.run();
     }

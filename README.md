@@ -8,10 +8,10 @@ This templates target use cases that official templates do not cover.
 
 * [Spanner to GCS Text](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToText.java)
 * [Spanner to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToAvro.java)
-* [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
+* [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 
 ## Getting Started
 
@@ -65,13 +65,13 @@ Because of template parameter, user can extract record flexibly using template s
 SpannerToText support json and csv format, and support partition query and single query.
 These settings must be reflected as different template pipeline.
 
-You can deploy each template pipeline with parameters '--type' and '--single'.
+You can deploy each template pipeline with parameters '--single'.
 
-Parameter '--type' should be set 'json' or 'csv' (default is 'json').
-Parameter '--single' should be set true or false (default is false).
+Parameter '--single' should be set true or false (default is true).
 
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
+| type            | String | Output format. set `json`(default) or `csv`.     |
 | projectId       | String | projectID for Spanner you will read.             |
 | instanceId      | String | Spanner instanceID you will read.                |
 | databaseId      | String | Spanner databaseID you will read.                |
