@@ -92,6 +92,8 @@ public class StructUtilTest {
                 .build();
 
         String json = StructUtil.toJson(struct);
-        Assert.assertEquals("{\"bf\":false,\"if\":-12,\"ff\":110.005,\"sf\":\"I am a pen\",\"df\":\"2018-10-01\",\"tf\":1538362800000,\"nsf\":null,\"nff\":null,\"ndf\":null,\"ntf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"adf\":[\"2018-09-01\",\"2018-10-01\"],\"atf\":[1535770800,1538362800]}", json);
+        Assert.assertEquals("{\"bf\":false,\"if\":-12,\"ff\":110.005,\"sf\":\"I am a pen\",\"df\":\"2018-10-01\",\"tf\":\"2018-10-01T03:00:00Z\",\"nsf\":null,\"nff\":null,\"ndf\":null,\"ntf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"adf\":[\"2018-09-01\",\"2018-10-01\"],\"atf\":[\"2018-09-01T03:00:00Z\",\"2018-10-01T03:00:00Z\"]}", json);
     }
+
+
 }

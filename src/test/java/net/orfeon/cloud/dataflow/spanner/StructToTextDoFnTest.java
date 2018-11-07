@@ -1,5 +1,6 @@
 package net.orfeon.cloud.dataflow.spanner;
 
+import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
@@ -51,8 +52,8 @@ public class StructToTextDoFnTest {
                 .apply("ConvertToJson", ParDo.of(new StructToTextDoFn(ValueProvider.StaticValueProvider.of("json"))));
 
         PAssert.that(lines).containsInAnyOrder(
-                "{\"bool\":true,\"int\":12,\"string\":\"string\",\"float\":10.12,\"timestamp\":1516332253000}",
-                "{\"bool\":false,\"int\":-10,\"string\":\"this is a pen!\",\"float\":0.12,\"timestamp\":1538395200000}");
+                "{\"bool\":true,\"int\":12,\"string\":\"string\",\"float\":10.12,\"timestamp\":\"2018-01-19T03:24:13Z\"}",
+                "{\"bool\":false,\"int\":-10,\"string\":\"this is a pen!\",\"float\":0.12,\"timestamp\":\"2018-10-01T12:00:00Z\"}");
 
         pipeline.run();
     }
@@ -83,8 +84,8 @@ public class StructToTextDoFnTest {
                 .apply("ConvertToCsv", ParDo.of(new StructToTextDoFn(ValueProvider.StaticValueProvider.of("csv"))));
 
         PAssert.that(lines).containsInAnyOrder(
-                "true,12,string,10.12,2018-09-01,1516332253000,",
-                "false,-10,this is a pen!,,0.12,1538395200000");
+                "true,12,string,10.12,2018-09-01,2018-01-19T03:24:13Z,",
+                "false,-10,this is a pen!,,0.12,2018-10-01T12:00:00Z");
 
         pipeline.run();
     }
@@ -131,10 +132,48 @@ public class StructToTextDoFnTest {
                 .apply("ConvertToJson", ParDo.of(new StructToTextDoFn(ValueProvider.StaticValueProvider.of("json"))));
 
         PAssert.that(lines).containsInAnyOrder(
-                "{\"key\":\"struct1\",\"bf\":true,\"if\":12,\"ff\":0.005,\"df\":\"2018-09-01\",\"tf\":1535770800000,\"sf\":\"This is a pen\",\"nsf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"naif\":null}",
-                "{\"key\":\"struct2\",\"bf\":false,\"if\":-12,\"ff\":110.005,\"df\":\"2018-10-01\",\"tf\":1538362800000,\"sf\":\"I am a pen\",\"of\":{\"key\":\"struct1\",\"bf\":true,\"if\":12,\"ff\":0.005,\"df\":\"2018-09-01\",\"tf\":1535770800000,\"sf\":\"This is a pen\",\"nsf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"naif\":null}}");
+                "{\"key\":\"struct1\",\"bf\":true,\"if\":12,\"ff\":0.005,\"df\":\"2018-09-01\",\"tf\":\"2018-09-01T03:00:00Z\",\"sf\":\"This is a pen\",\"nsf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"naif\":null}",
+                "{\"key\":\"struct2\",\"bf\":false,\"if\":-12,\"ff\":110.005,\"df\":\"2018-10-01\",\"tf\":\"2018-10-01T03:00:00Z\",\"sf\":\"I am a pen\",\"of\":{\"key\":\"struct1\",\"bf\":true,\"if\":12,\"ff\":0.005,\"df\":\"2018-09-01\",\"tf\":\"2018-09-01T03:00:00Z\",\"sf\":\"This is a pen\",\"nsf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"naif\":null}}");
 
         pipeline.run();
+    }
+
+    @Test
+    public void testToTableRow() {
+        Date date1 = Date.fromYearMonthDay(2018, 9, 1);
+        Date date2 = Date.fromYearMonthDay(2018, 10, 1);
+        String str1 = "2018-09-01T12:00+09:00";
+        String str2 = "2018-10-01T12:00+09:00";
+        Instant instant1 = Instant.parse(str1);
+        Instant instant2 = Instant.parse(str2);
+        Timestamp timestamp1 = Timestamp.ofTimeMicroseconds(instant1.getMillis() * 1000);
+        Timestamp timestamp2 = Timestamp.ofTimeMicroseconds(instant2.getMillis() * 1000);
+
+        Struct struct = Struct.newBuilder()
+                .set("bf").to(false)
+                .set("if").to(-12)
+                .set("ff").to(110.005)
+                .set("sf").to("I am a pen")
+                .set("df").to(date2)
+                .set("tf").to(timestamp2)
+                .set("nsf").to((String)null)
+                .set("nff").to((Double)null)
+                .set("ndf").to((Date)null)
+                .set("ntf").to((Timestamp)null)
+                .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
+                .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
+                .set("adf").toDateArray(Arrays.asList(date1, date2))
+                .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
+                .build();
+
+        Pipeline pipeline = Pipeline.create();
+        PCollection<TableRow> lines = pipeline
+                .apply("CreateDummy", Create.of(struct))
+                .apply("ConvertToJson", ParDo.of(new StructToTableRowDoFn()));
+
+        pipeline.run();
+
+
     }
 
 }

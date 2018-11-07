@@ -1,5 +1,6 @@
 package net.orfeon.cloud.dataflow.spanner;
 
+import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.ByteArray;
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
@@ -27,23 +28,14 @@ public class StructUtil {
 
     }
 
-    public static Map<String,Object> toMap(Struct struct) {
-        Map<String,Object> map = new HashMap<>();
-        for(Type.StructField field : struct.getType().getStructFields()) {
-            map.put(field.getName(), getFieldValue(field, struct));
-        }
-        return map;
-    }
-
-    public static String toJson(Struct struct) {
+    public static String toJson(final Struct struct) {
         JsonObject obj = new JsonObject();
-        for(Type.StructField field : struct.getType().getStructFields()) {
-            setJsonFieldValue(obj, field, struct);
-        }
+        struct.getType().getStructFields().stream()
+                .forEach(f -> setJsonFieldValue(obj, f, struct));
         return obj.toString();
     }
 
-    public static String toCsvLine(Struct struct) throws IOException {
+    public static String toCsvLine(final Struct struct) throws IOException {
         List<Object> objs = struct.getType().getStructFields()
                 .stream()
                 .map((Type.StructField field) -> StructUtil.getFieldValue(field, struct))
@@ -56,7 +48,28 @@ public class StructUtil {
         }
     }
 
-    public static Mutation toMutation(Struct struct, String table) {
+    public static TableRow toTableRow(final Struct struct) {
+        final TableRow row = new TableRow();
+        for(final Type.StructField field : struct.getType().getStructFields()) {
+            final String name = field.getName();
+            if("f".equals(name)) {
+                throw new IllegalArgumentException("Struct must not have field name f because `f` is reserved tablerow field name.");
+            }
+            Object value = getFieldValue(field, struct);
+            if(value == null) {
+                continue;
+            }
+            if(Type.timestamp().equals(field.getType())) {
+                value = ((com.google.cloud.Timestamp)value).getSeconds();
+            } else if(Type.date().equals(field.getType())) {
+                value = value.toString();
+            }
+            row.set(name, value);
+        }
+        return row;
+    }
+
+    public static Mutation toMutation(final Struct struct, final String table) {
         Mutation.WriteBuilder builder = Mutation.newInsertOrUpdateBuilder(table);
         for(Type.StructField field : struct.getType().getStructFields()) {
             switch(field.getType().getCode()) {
@@ -121,7 +134,7 @@ public class StructUtil {
         return builder.build();
     }
 
-    public static Struct from(ResultSet resultSet) throws SQLException {
+    public static Struct from(final ResultSet resultSet) throws SQLException {
         final ResultSetMetaData meta = resultSet.getMetaData();
         final int columnCount = meta.getColumnCount();
         Struct.Builder builder = Struct.newBuilder();
@@ -235,16 +248,15 @@ public class StructUtil {
         return builder.build();
     }
 
-    public static Object getFieldValue(String fieldName, Struct struct) {
-        for(Type.StructField field : struct.getType().getStructFields()) {
-            if(field.getName().equals(fieldName)) {
-                return getFieldValue(field, struct);
-            }
-        }
-        return null;
+    public static Object getFieldValue(final String fieldName, final Struct struct) {
+        return struct.getType().getStructFields().stream()
+                .filter(f -> f.getName().equals(fieldName))
+                .findAny()
+                .map(f -> getFieldValue(f, struct))
+                .orElse(null);
     }
 
-    public static Object getFieldValue(Type.StructField field, Struct struct) {
+    private static Object getFieldValue(Type.StructField field, Struct struct) {
         if(struct.isNull(field.getName())) {
             return null;
         }
@@ -260,7 +272,7 @@ public class StructUtil {
             case BYTES:
                 return struct.getBytes(field.getName()).toBase64();
             case TIMESTAMP:
-                return struct.getTimestamp(field.getName()).getSeconds() * 1000;
+                return struct.getTimestamp(field.getName());
             case DATE:
                 return struct.getDate(field.getName());
             case STRUCT:
@@ -295,10 +307,10 @@ public class StructUtil {
                     struct.getBytesList(field.getName()).stream().map((ByteArray::toBase64)).forEach(list::add);
                     return list;
             case TIMESTAMP:
-                    struct.getTimestampList(field.getName()).stream().map(t -> t.getSeconds() * 1000).forEach(list::add);
+                    struct.getTimestampList(field.getName()).stream().forEach(list::add);
                     return list;
             case DATE:
-                    struct.getDateList(field.getName()).stream().map((Date date) -> date.toString()).forEach(list::add);
+                    struct.getDateList(field.getName()).stream().forEach(list::add);
                     return list;
             case STRUCT:
                 List<Map<String,Object>> maps = new ArrayList<>();
@@ -334,7 +346,7 @@ public class StructUtil {
                 obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getBytes(field.getName()).toBase64());
                 break;
             case TIMESTAMP:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()).getSeconds() * 1000);
+                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()).toString());
                 break;
             case DATE:
                 obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getDate(field.getName()).toString());
@@ -385,7 +397,7 @@ public class StructUtil {
                 obj.add(field.getName(), array);
                 break;
             case TIMESTAMP:
-                struct.getTimestampList(field.getName()).stream().map(s -> s.getSeconds() * 1000).forEach(array::add);
+                struct.getTimestampList(field.getName()).stream().map(s -> s.toString()).forEach(array::add);
                 obj.add(field.getName(), array);
                 break;
             case DATE:
