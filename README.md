@@ -61,13 +61,7 @@ gcloud dataflow jobs run <job-name> \
 
 SpannerToText's feature is that user can specify sql to extract record as template parameter.
 Because of template parameter, user can extract record flexibly using template such as daily differential backup from Spanner.
-
-SpannerToText support json and csv format, and support partition query and single query.
-These settings must be reflected as different template pipeline.
-
-You can deploy each template pipeline with parameters '--single'.
-
-Parameter '--single' should be set true or false (default is true).
+SpannerToText support json and csv format.
 
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
@@ -79,10 +73,9 @@ Parameter '--single' should be set true or false (default is true).
 | output          | String | GCS path to output. prefix must start with gs:// |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
 
-* Query must be root partitionable, that must have a DistributedUnion at the root.
+* If query is root partitionable(query plan have a DistributedUnion at the root), Pipeline will read record from Spanner in parallel.
 For example, query that includes 'order by', 'limit' operation can not have DistributedUnion at the root.
 Please run EXPLAIN for query plan details before running template.
-* If you want to use non partitionable query, use single query template pipeline (set option --single=true when deploying template).
 * [timestampBound](https://cloud.google.com/spanner/docs/timestamp-bounds) must be within one hour.
 * timestampBound format example in japan: '2018-10-01T18:00:00+09:00'.
 
@@ -92,10 +85,6 @@ Please run EXPLAIN for query plan details before running template.
 SpannerToAvro's feature is that user can specify sql to extract record as template parameter.
 You can restore Spanner table, BigQuery table from avro files you outputted.
 Template parameters are same as SpannerToText.
-
-You can deploy each template pipeline with parameters '--single'.
-
-Parameter '--single' should be set true or false (default is false).
 
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
@@ -144,6 +133,7 @@ BigQuery destination table must be created.
 
 SpannerToSpanner enables you to query from some Spanner table and write results to specified Spanner table using template.
 Template parameters are same as SpannerToText.
+Spanner destination table must be created.
 
 | Parameter       | Type   | Description                                        |
 |-----------------|--------|----------------------------------------------------|

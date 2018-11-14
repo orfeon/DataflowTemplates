@@ -1,42 +1,43 @@
 package net.orfeon.cloud.dataflow.spanner;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.spanner.*;
+import com.google.cloud.spanner.Partition;
 import com.google.common.collect.Iterables;
-import org.apache.beam.sdk.coders.SerializableCoder;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.coders.*;
 import org.apache.beam.sdk.io.gcp.spanner.MutationGroup;
 import org.apache.beam.sdk.io.gcp.spanner.SpannerWriteResult;
 import org.apache.beam.sdk.options.ValueProvider;
-import org.apache.beam.sdk.transforms.Create;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.*;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
+
 import static com.google.cloud.spanner.SpannerOptions.getDefaultInstance;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
 
 public class SpannerSimpleIO {
-
-    public static Write write(String projectId, String instanceId, String databaseId, int limit) {
-        return new Write(projectId, instanceId, databaseId, limit);
-    }
 
     public static Read read(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
                             ValueProvider<String> query, ValueProvider<String> timestampBound) {
         return new Read(projectId, instanceId, databaseId, query, timestampBound);
     }
 
-    public static ReadSingleQuery readSingle(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
-                            ValueProvider<String> query, ValueProvider<String> timestampBound) {
-        return new ReadSingleQuery(projectId, instanceId, databaseId, query, timestampBound);
+    public static Write write(String projectId, String instanceId, String databaseId, int limit) {
+        return new Write(projectId, instanceId, databaseId, limit);
     }
 
+
     public static class Read extends PTransform<PBegin, PCollection<Struct>> {
+
+        public final TupleTag<KV<Integer, KV<BatchTransactionId, Partition>>> tagOutputPartition
+                = new TupleTag<KV<Integer, KV<BatchTransactionId, Partition>>>(){ private static final long serialVersionUID = 1L; };
+        public final TupleTag<Struct> tagOutputStruct
+                = new TupleTag<Struct>(){ private static final long serialVersionUID = 1L; };
 
         private final ValueProvider<String> projectId;
         private final ValueProvider<String> instanceId;
@@ -45,7 +46,7 @@ public class SpannerSimpleIO {
         private final ValueProvider<String> timestampBound;
 
         private Read(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
-                     ValueProvider<String> query, ValueProvider<String> timestampBound) {
+                                ValueProvider<String> query, ValueProvider<String> timestampBound) {
             this.projectId = projectId;
             this.instanceId = instanceId;
             this.databaseId = databaseId;
@@ -54,13 +55,23 @@ public class SpannerSimpleIO {
         }
 
         public PCollection<Struct> expand(PBegin begin) {
-            return  begin.getPipeline()
-                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()))
-                    .apply("SplitPartition", ParDo.of(new QueryPartitionSpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.timestampBound)))
+            final PCollection<String> queries = begin.getPipeline()
+                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()));
+
+            final PCollectionTuple results = queries
+                    .apply("ExecuteQuery", ParDo.of(new QueryPartitionSpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.timestampBound)).withOutputTags(tagOutputPartition, TupleTagList.of(tagOutputStruct)));
+
+            final PCollection<Struct> struct1 = results.get(tagOutputPartition)
+                    .apply("GroupByPartition", GroupByKey.create())
                     .apply("ReadStruct", ParDo.of(new ReadStructSpannerDoFn(this.projectId, this.instanceId, this.databaseId)));
+
+            final PCollection<Struct> struct2 = results.get(tagOutputStruct);
+
+            return PCollectionList.of(struct1).and(struct2)
+                    .apply("Flatten", Flatten.pCollections());
         }
 
-        public class QueryPartitionSpannerDoFn extends DoFn<String, KV<BatchTransactionId, Partition>> {
+        public class QueryPartitionSpannerDoFn extends DoFn<String, KV<Integer, KV<BatchTransactionId, Partition>>> {
 
             private final Logger log = LoggerFactory.getLogger(QueryPartitionSpannerDoFn.class);
 
@@ -80,9 +91,15 @@ public class SpannerSimpleIO {
             }
 
             @Setup
-            public void setup() throws Exception {
+            public void setup() {
                 final SpannerOptions options = getDefaultInstance();
-                this.spanner = options.getService();
+                // TODO: ENABLE TO SET TIMEOUT. CURRENT DEFAULT TIMEOUT 1 HOUR.
+                // In current client status, we can not specify timeout configuration.
+                // https://github.com/googleapis/google-cloud-java/issues/3616
+                this.spanner = options.toBuilder()
+                        .setRetrySettings(RetrySettings.newBuilder().setTotalTimeout(Duration.ofHours(4)).build())
+                        .build()
+                        .getService();
                 this.batchClient = spanner.getBatchClient(
                         DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
             }
@@ -107,22 +124,42 @@ public class SpannerSimpleIO {
                     tb = TimestampBound.ofReadTimestamp(timestamp);
                 }
 
-                final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(tb);
-                final List<Partition> partitions = transaction.partitionQuery(options, statement);
-                log.info(String.format("Query [%s] (with timestamp bound [%s]) divided to [%d] partitions.", query, tb, partitions.size()));
-                for(final Partition partition : partitions) {
-                    c.output(KV.of(transaction.getBatchTransactionId(), partition));
+                final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(tb); // DO NOT CLOSE!!!
+                try {
+                    final List<Partition> partitions = transaction.partitionQuery(options, statement);
+                    log.info(String.format("Query [%s] (with timestamp bound [%s]) divided to [%d] partitions.", query, tb, partitions.size()));
+                    for (int i = 0; i < partitions.size(); ++i) {
+                        final KV<BatchTransactionId, Partition> value = KV.of(transaction.getBatchTransactionId(), partitions.get(i));
+                        final KV<Integer, KV<BatchTransactionId, Partition>> kv = KV.of(i, value);
+                        c.output(kv);
+                    }
+                } catch (SpannerException e) {
+                    if(!e.getErrorCode().equals(ErrorCode.INVALID_ARGUMENT)) {
+                        throw e;
+                    }
+                    log.warn(String.format("Query [%s] could not be executed. Retrying as single query.", query));
+                    final DatabaseClient client = spanner.getDatabaseClient(
+                            DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
+                    try(final ResultSet resultSet = client.singleUseReadOnlyTransaction(tb).executeQuery(statement)) {
+                        log.info(String.format("Query [%s] (with timestamp bound [%s]).", query, tb));
+                        int count = 0;
+                        while(resultSet.next()) {
+                            c.output(tagOutputStruct, resultSet.getCurrentRowAsStruct());
+                            count++;
+                        }
+                        log.info(String.format("Query read record num [%d]", count));
+                    }
                 }
             }
 
             @Teardown
-            public void teardown() throws Exception {
+            public void teardown() {
                 this.spanner.close();
             }
 
         }
 
-        public class ReadStructSpannerDoFn extends DoFn<KV<BatchTransactionId, Partition>, Struct> {
+        public class ReadStructSpannerDoFn extends DoFn<KV<Integer, Iterable<KV<BatchTransactionId, Partition>>>, Struct> {
 
             private final Logger log = LoggerFactory.getLogger(ReadStructSpannerDoFn.class);
 
@@ -140,111 +177,42 @@ public class SpannerSimpleIO {
             }
 
             @Setup
-            public void setup() throws Exception {
+            public void setup() {
                 final SpannerOptions options = getDefaultInstance();
-                this.spanner = options.getService();
+                // TODO: ENABLE TO SET TIMEOUT. CURRENT DEFAULT TIMEOUT 1 HOUR.
+                // In current client status, we can not specify timeout configuration.
+                // https://github.com/googleapis/google-cloud-java/issues/3616
+                this.spanner = options.toBuilder()
+                        .setRetrySettings(RetrySettings.newBuilder().setTotalTimeout(Duration.ofHours(4)).build())
+                        .build()
+                        .getService();
                 this.batchClient = spanner.getBatchClient(
                         DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
             }
 
             @ProcessElement
             public void processElement(ProcessContext c) {
-                final KV<BatchTransactionId, Partition> kv = c.element();
-                final ResultSet resultSet = this.batchClient.batchReadOnlyTransaction(kv.getKey()).execute(kv.getValue());
-                int count = 0;
-                while(resultSet.next()) {
-                    c.output(resultSet.getCurrentRowAsStruct());
-                    count++;
+                final KV<Integer, Iterable<KV<BatchTransactionId, Partition>>> kv = c.element();
+                final int partitionNumber = kv.getKey();
+                final KV<BatchTransactionId, Partition> value = kv.getValue().iterator().next();
+                final BatchTransactionId transactionId = value.getKey();
+                final Partition partition = value.getValue();
+                try(final ResultSet resultSet = this.batchClient.batchReadOnlyTransaction(transactionId).execute(partition)) {
+                    log.info(String.format("Started %d th partition[%s] query.", partitionNumber, partition));
+                    int count = 0;
+                    while (resultSet.next()) {
+                        c.output(resultSet.getCurrentRowAsStruct());
+                        count++;
+                        if (count % 100000 == 0) {
+                            log.info(String.format("%d th partition processed %d record", partitionNumber, count));
+                        }
+                    }
+                    log.info(String.format("%d th partition completed to read record: [%d]", partitionNumber, count));
                 }
-                log.info(String.format("Partition query read record num [%d]", count));
             }
 
             @Teardown
-            public void teardown() throws Exception {
-                this.spanner.close();
-            }
-
-        }
-
-    }
-
-    public static class ReadSingleQuery extends PTransform<PBegin, PCollection<Struct>> {
-
-        private final ValueProvider<String> projectId;
-        private final ValueProvider<String> instanceId;
-        private final ValueProvider<String> databaseId;
-        private final ValueProvider<String> query;
-        private final ValueProvider<String> timestampBound;
-
-        private ReadSingleQuery(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
-                                ValueProvider<String> query, ValueProvider<String> timestampBound) {
-            this.projectId = projectId;
-            this.instanceId = instanceId;
-            this.databaseId = databaseId;
-            this.query = query;
-            this.timestampBound = timestampBound;
-        }
-
-        public PCollection<Struct> expand(PBegin begin) {
-            return begin.getPipeline()
-                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()))
-                    .apply("ExecuteQuery", ParDo.of(new QuerySpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.timestampBound)));
-        }
-
-        public class QuerySpannerDoFn extends DoFn<String, Struct> {
-
-            private final Logger log = LoggerFactory.getLogger(QuerySpannerDoFn.class);
-
-            private final ValueProvider<String> projectId;
-            private final ValueProvider<String> instanceId;
-            private final ValueProvider<String> databaseId;
-            private final ValueProvider<String> timestampBound;
-
-            private Spanner spanner;
-            private DatabaseClient client;
-
-            private QuerySpannerDoFn(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId, ValueProvider<String> timestampBound) {
-                this.projectId = projectId;
-                this.instanceId = instanceId;
-                this.databaseId = databaseId;
-                this.timestampBound = timestampBound;
-            }
-
-            @Setup
-            public void setup() throws Exception {
-                final SpannerOptions options = getDefaultInstance();
-                this.spanner = options.getService();
-                this.client = spanner.getDatabaseClient(DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
-            }
-
-            @ProcessElement
-            public void processElement(ProcessContext c) {
-                final String query = c.element();
-                final String timestampBoundString = this.timestampBound.get();
-                log.info(String.format("Received query [%s], timestamp bound [%s]", query, timestampBoundString));
-                final Statement statement = Statement.of(query);
-
-                final TimestampBound tb;
-                if(timestampBoundString == null) {
-                    tb = TimestampBound.strong();
-                } else {
-                    final Instant instant = Instant.parse(timestampBoundString);
-                    final com.google.cloud.Timestamp timestamp = com.google.cloud.Timestamp.ofTimeMicroseconds(instant.getMillis() * 1000);
-                    tb = TimestampBound.ofReadTimestamp(timestamp);
-                }
-
-                final ResultSet resultSet = this.client.singleUseReadOnlyTransaction(tb).executeQuery(statement);
-                log.info(String.format("Query [%s] (with timestamp bound [%s]).", query, tb));
-                int count = 0;
-                while(resultSet.next()) {
-                    c.output(resultSet.getCurrentRowAsStruct());
-                    count++;
-                }
-                log.info(String.format("Query read record num [%d]", count));
-            }
-
-            @Teardown
-            public void teardown() throws Exception {
+            public void teardown() {
                 this.spanner.close();
             }
 

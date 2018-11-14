@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+
 public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone> {
 
     private static final String DEFAULT_KEY = "__KEY__";

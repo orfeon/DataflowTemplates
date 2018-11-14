@@ -45,6 +45,7 @@
     <slf4j.version>1.7.25</slf4j.version>
     <spark.version>2.3.1</spark.version>
     <hadoop.version>2.7.3</hadoop.version>
+    <opencensus.version>0.17.0</opencensus.version>
     <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
   </properties>
 
@@ -505,6 +506,28 @@
       <groupId>com.google.cloud.sql</groupId>
       <artifactId>mysql-socket-factory-connector-j-6</artifactId>
       <version>1.0.11</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/io.opencensus/opencensus-api -->
+    <dependency>
+      <groupId>io.opencensus</groupId>
+      <artifactId>opencensus-api</artifactId>
+      <version>${opencensus.version}</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/io.opencensus/opencensus-impl -->
+    <dependency>
+      <groupId>io.opencensus</groupId>
+      <artifactId>opencensus-impl</artifactId>
+      <version>${opencensus.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/io.opencensus/opencensus-exporter-trace-stackdriver -->
+    <dependency>
+      <groupId>io.opencensus</groupId>
+      <artifactId>opencensus-exporter-trace-stackdriver</artifactId>
+      <version>${opencensus.version}</version>
     </dependency>
 
   </dependencies>

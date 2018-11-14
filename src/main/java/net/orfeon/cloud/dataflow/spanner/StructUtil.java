@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
 public class StructUtil {
 
     private StructUtil() {
@@ -50,18 +51,18 @@ public class StructUtil {
 
     public static TableRow toTableRow(final Struct struct) {
         final TableRow row = new TableRow();
-        for(final Type.StructField field : struct.getType().getStructFields()) {
+        for (final Type.StructField field : struct.getType().getStructFields()) {
             final String name = field.getName();
-            if("f".equals(name)) {
+            if ("f".equals(name)) {
                 throw new IllegalArgumentException("Struct must not have field name f because `f` is reserved tablerow field name.");
             }
             Object value = getFieldValue(field, struct);
-            if(value == null) {
+            if (value == null) {
                 continue;
             }
-            if(Type.timestamp().equals(field.getType())) {
-                value = ((com.google.cloud.Timestamp)value).getSeconds();
-            } else if(Type.date().equals(field.getType())) {
+            if (Type.timestamp().equals(field.getType())) {
+                value = ((com.google.cloud.Timestamp) value).getSeconds();
+            } else if (Type.date().equals(field.getType())) {
                 value = value.toString();
             }
             row.set(name, value);
