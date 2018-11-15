@@ -10,8 +10,8 @@ This templates target use cases that official templates do not cover.
 * [Spanner to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToAvro.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
-* [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
+* [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
 
 ## Getting Started
 
@@ -99,23 +99,6 @@ Template parameters are same as SpannerToText.
 * Some spanner data type will be converted. Date will be converted to epoch days (Int32), Timestamp will be converted to epoch milliseconds (Int64).
 
 
-### AvroToSpanner
-
-AvroToSpanner recovers Spanner table from avro files you made using SpannerToAvro template.
-Template parameters are same as SpannerToText.
-
-| Parameter       | Type   | Description                                      |
-|-----------------|--------|--------------------------------------------------|
-| input           | String | GCS path for avro files. prefix must start with gs:// |
-| projectId       | String | projectID for Spanner you will recover.          |
-| instanceId      | String | Spanner instanceID you will recover.             |
-| databaseId      | String | Spanner databaseID you will recover.             |
-| table           | String | Spanner table name to insert records.            |
-| mutationOp      | String | Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
-
-* [Spanner insert policy detail](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html)
-
-
 ### SpannerToBigQuery
 
 SpannerToBigQuery's feature is that user can specify sql to extract record as template parameter.
@@ -147,11 +130,25 @@ Spanner destination table must be created.
 | outputProjectId | String | projectID for Spanner you will write query result. |
 | outputInstanceId| String | Spanner instanceID you will write query result.    |
 | outputDatabaseId| String | Spanner databaseID you will write query result.    |
-| outputTable     | String | Spanner table name will write query result.        |
-| mutationOp      | String | Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+| outputTable     | String | Spanner table name you will write query result.    |
+| mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+| outputError     | String | GCS path to output error record as avro files.     |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
 
-* [Spanner insert policy detail](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html)
+
+### AvroToSpanner
+
+AvroToSpanner recovers Spanner table from avro files you made using SpannerToAvro template.
+Template parameters are same as SpannerToText.
+
+| Parameter       | Type   | Description                                      |
+|-----------------|--------|--------------------------------------------------|
+| input           | String | GCS path for avro files. prefix must start with gs:// |
+| projectId       | String | projectID for Spanner you will recover.          |
+| instanceId      | String | Spanner instanceID you will recover.             |
+| databaseId      | String | Spanner databaseID you will recover.             |
+| table           | String | Spanner table name to insert records.            |
+| mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 
 
 ### JdbcToAvro
