@@ -43,7 +43,7 @@ public class StructUtilTest {
                 .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
                 .build();
 
-        Mutation mutation = StructUtil.toMutation(struct, "mytable");
+        Mutation mutation = StructUtil.toMutation(struct, "mytable", Mutation.Op.valueOf("INSERT"));
         Assert.assertEquals("mytable", mutation.getTable());
         System.out.println(mutation);
         Map<String, Value> map = mutation.asMap();
@@ -93,6 +93,12 @@ public class StructUtilTest {
 
         String json = StructUtil.toJson(struct);
         Assert.assertEquals("{\"bf\":false,\"if\":-12,\"ff\":110.005,\"sf\":\"I am a pen\",\"df\":\"2018-10-01\",\"tf\":\"2018-10-01T03:00:00Z\",\"nsf\":null,\"nff\":null,\"ndf\":null,\"ntf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"adf\":[\"2018-09-01\",\"2018-10-01\"],\"atf\":[\"2018-09-01T03:00:00Z\",\"2018-10-01T03:00:00Z\"]}", json);
+    }
+
+    @Test
+    public void testOp() {
+        String name = null;
+        System.out.println(Mutation.Op.valueOf(name));
     }
 
 

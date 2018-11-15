@@ -106,11 +106,14 @@ Template parameters are same as SpannerToText.
 
 | Parameter       | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
+| input           | String | GCS path for avro files. prefix must start with gs:// |
 | projectId       | String | projectID for Spanner you will recover.          |
 | instanceId      | String | Spanner instanceID you will recover.             |
 | databaseId      | String | Spanner databaseID you will recover.             |
 | table           | String | Spanner table name to insert records.            |
-| input           | String | GCS path for avro files. prefix must start with gs:// |
+| mutationOp      | String | Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+
+* [Spanner insert policy detail](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html)
 
 
 ### SpannerToBigQuery
@@ -145,7 +148,10 @@ Spanner destination table must be created.
 | outputInstanceId| String | Spanner instanceID you will write query result.    |
 | outputDatabaseId| String | Spanner databaseID you will write query result.    |
 | outputTable     | String | Spanner table name will write query result.        |
+| mutationOp      | String | Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* [Spanner insert policy detail](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html)
 
 
 ### JdbcToAvro

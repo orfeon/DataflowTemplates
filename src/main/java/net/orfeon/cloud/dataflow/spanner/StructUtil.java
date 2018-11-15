@@ -70,9 +70,9 @@ public class StructUtil {
         return row;
     }
 
-    public static Mutation toMutation(final Struct struct, final String table) {
-        Mutation.WriteBuilder builder = Mutation.newInsertOrUpdateBuilder(table);
-        for(Type.StructField field : struct.getType().getStructFields()) {
+    public static Mutation toMutation(final Struct struct, final String table, final Mutation.Op mutationOp) {
+        Mutation.WriteBuilder builder = createMutationWriteBuilder(table, mutationOp);
+        for(final Type.StructField field : struct.getType().getStructFields()) {
             switch(field.getType().getCode()) {
                 case STRING:
                     builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getString(field.getName()));
@@ -418,6 +418,21 @@ public class StructUtil {
             case ARRAY:
                 setJsonArrayFieldValue(obj, field, struct);
                 break;
+        }
+    }
+
+    private static Mutation.WriteBuilder createMutationWriteBuilder(final String table, final Mutation.Op mutationOp) {
+        switch(mutationOp) {
+            case INSERT:
+                return Mutation.newInsertBuilder(table);
+            case UPDATE:
+                return Mutation.newUpdateBuilder(table);
+            case INSERT_OR_UPDATE:
+                return Mutation.newInsertOrUpdateBuilder(table);
+            case REPLACE:
+                return Mutation.newReplaceBuilder(table);
+            default:
+                return Mutation.newInsertOrUpdateBuilder(table);
         }
     }
 

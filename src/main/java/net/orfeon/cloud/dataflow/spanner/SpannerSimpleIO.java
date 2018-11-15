@@ -92,11 +92,10 @@ public class SpannerSimpleIO {
 
             @Setup
             public void setup() {
-                final SpannerOptions options = getDefaultInstance();
                 // TODO: ENABLE TO SET TIMEOUT. CURRENT DEFAULT TIMEOUT 1 HOUR.
                 // In current client status, we can not specify timeout configuration.
                 // https://github.com/googleapis/google-cloud-java/issues/3616
-                this.spanner = options.toBuilder()
+                this.spanner = SpannerOptions.newBuilder()
                         .setRetrySettings(RetrySettings.newBuilder().setTotalTimeout(Duration.ofHours(4)).build())
                         .build()
                         .getService();
@@ -110,10 +109,6 @@ public class SpannerSimpleIO {
                 final String timestampBoundString = this.timestampBound.get();
                 log.info(String.format("Received query [%s], timestamp bound [%s]", query, timestampBoundString));
                 final Statement statement = Statement.of(query);
-                final PartitionOptions options = PartitionOptions.newBuilder()
-                        //.setMaxPartitions(10000) // Note: this hint is currently ignored in v1.
-                        //.setPartitionSizeBytes(100000000) // Note: this hint is currently ignored in v1.
-                        .build();
 
                 final TimestampBound tb;
                 if(timestampBoundString == null) {
@@ -124,8 +119,12 @@ public class SpannerSimpleIO {
                     tb = TimestampBound.ofReadTimestamp(timestamp);
                 }
 
-                final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(tb); // DO NOT CLOSE!!!
                 try {
+                    final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(tb); // DO NOT CLOSE!!!
+                    final PartitionOptions options = PartitionOptions.newBuilder()
+                            //.setMaxPartitions(10000) // Note: this hint is currently ignored in v1.
+                            //.setPartitionSizeBytes(100000000) // Note: this hint is currently ignored in v1.
+                            .build();
                     final List<Partition> partitions = transaction.partitionQuery(options, statement);
                     log.info(String.format("Query [%s] (with timestamp bound [%s]) divided to [%d] partitions.", query, tb, partitions.size()));
                     for (int i = 0; i < partitions.size(); ++i) {
@@ -140,7 +139,10 @@ public class SpannerSimpleIO {
                     log.warn(String.format("Query [%s] could not be executed. Retrying as single query.", query));
                     final DatabaseClient client = spanner.getDatabaseClient(
                             DatabaseId.of(projectId.get(), instanceId.get(), databaseId.get()));
-                    try(final ResultSet resultSet = client.singleUseReadOnlyTransaction(tb).executeQuery(statement)) {
+
+                    try(final ReadOnlyTransaction singleUseTransaction = client.singleUseReadOnlyTransaction(tb);
+                        final ResultSet resultSet = singleUseTransaction.executeQuery(statement)) {
+
                         log.info(String.format("Query [%s] (with timestamp bound [%s]).", query, tb));
                         int count = 0;
                         while(resultSet.next()) {
@@ -178,11 +180,11 @@ public class SpannerSimpleIO {
 
             @Setup
             public void setup() {
-                final SpannerOptions options = getDefaultInstance();
                 // TODO: ENABLE TO SET TIMEOUT. CURRENT DEFAULT TIMEOUT 1 HOUR.
                 // In current client status, we can not specify timeout configuration.
                 // https://github.com/googleapis/google-cloud-java/issues/3616
-                this.spanner = options.toBuilder()
+                // https://stackoverflow.com/questions/44312793/way-to-prevent-transaction-timeout
+                this.spanner = SpannerOptions.newBuilder()
                         .setRetrySettings(RetrySettings.newBuilder().setTotalTimeout(Duration.ofHours(4)).build())
                         .build()
                         .getService();
@@ -196,8 +198,10 @@ public class SpannerSimpleIO {
                 final int partitionNumber = kv.getKey();
                 final KV<BatchTransactionId, Partition> value = kv.getValue().iterator().next();
                 final BatchTransactionId transactionId = value.getKey();
+                final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(transactionId); // DO NOT CLOSE!!!
                 final Partition partition = value.getValue();
-                try(final ResultSet resultSet = this.batchClient.batchReadOnlyTransaction(transactionId).execute(partition)) {
+
+                try(final ResultSet resultSet = transaction.execute(partition)) {
                     log.info(String.format("Started %d th partition[%s] query.", partitionNumber, partition));
                     int count = 0;
                     while (resultSet.next()) {

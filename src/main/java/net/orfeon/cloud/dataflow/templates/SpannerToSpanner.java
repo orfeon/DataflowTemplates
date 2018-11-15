@@ -44,9 +44,15 @@ public class SpannerToSpanner {
         ValueProvider<String> getOutputTable();
         void setOutputTable(ValueProvider<String> databaseId);
 
+        @Description("Spanner table name to store query result")
+        @Default.String("INSERT_OR_UPDATE")
+        ValueProvider<String> getMutationOp();
+        void setMutationOp(ValueProvider<String> mutationOp);
+
         @Description("(Optional) Input timestamp bound as format 'yyyy-MM-ddTHH:mm:SSZ'")
         ValueProvider<String> getTimestampBound();
         void setTimestampBound(ValueProvider<String> timestampBound);
+
     }
 
     public static void main(String[] args) {
@@ -55,7 +61,7 @@ public class SpannerToSpanner {
 
         Pipeline pipeline = Pipeline.create(options);
         pipeline.apply("QuerySpanner", SpannerSimpleIO.read(options.getInputProjectId(), options.getInputInstanceId(), options.getInputDatabaseId(), options.getQuery(), options.getTimestampBound()))
-                .apply("ConvertMutation", ParDo.of(new StructToMutationDoFn(options.getOutputTable())))
+                .apply("ConvertMutation", ParDo.of(new StructToMutationDoFn(options.getOutputTable(), options.getMutationOp())))
                 .apply("StoreSpanner", SpannerIO.write()
                         .withProjectId(options.getOutputProjectId())
                         .withInstanceId(options.getOutputInstanceId())

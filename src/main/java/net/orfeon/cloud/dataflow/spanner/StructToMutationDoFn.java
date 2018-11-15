@@ -4,25 +4,35 @@ import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StructToMutationDoFn extends DoFn<Struct, Mutation> {
 
-    private final ValueProvider<String> table;
-    private String tableString;
+    private static final Logger LOG = LoggerFactory.getLogger(StructToMutationDoFn.class);
 
-    public StructToMutationDoFn(ValueProvider<String> table) {
-        this.table = table;
+    private final ValueProvider<String> tableVP;
+    private final ValueProvider<String> mutationOpVP;
+    private String table;
+    private Mutation.Op mutationOp;
+
+    public StructToMutationDoFn(ValueProvider<String> tableVP, ValueProvider<String> mutationOpVP) {
+        this.tableVP = tableVP;
+        this.mutationOpVP = mutationOpVP;
     }
 
     @Setup
     public void setup() {
-        this.tableString = this.table.get();
+        this.table = this.tableVP.get();
+        this.mutationOp = Mutation.Op.valueOf(this.mutationOpVP.get());
+        LOG.info(String.format("StructToMutationDoFn setup finished. table:[%s], op:[%s]", this.table, this.mutationOp));
     }
 
     @ProcessElement
     public void processElement(ProcessContext c) {
         Struct struct = c.element();
-        Mutation mutation = StructUtil.toMutation(struct, this.tableString);
+        Mutation mutation = StructUtil.toMutation(struct, this.table, this.mutationOp);
         c.output(mutation);
     }
+
 }
