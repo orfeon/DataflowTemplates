@@ -4,16 +4,17 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.ByteArray;
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
-import com.google.cloud.spanner.Mutation;
+import com.google.cloud.spanner.*;
 import com.google.cloud.spanner.Struct;
-import com.google.cloud.spanner.Type;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.apache.beam.sdk.io.gcp.spanner.MutationGroup;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
 import java.io.IOException;
 import java.sql.*;
+import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -73,57 +74,60 @@ public class StructUtil {
     public static Mutation toMutation(final Struct struct, final String table, final Mutation.Op mutationOp) {
         Mutation.WriteBuilder builder = createMutationWriteBuilder(table, mutationOp);
         for(final Type.StructField field : struct.getType().getStructFields()) {
+            final String fieldName = field.getName();
+            final boolean isNullField = struct.isNull(fieldName);
+            final ValueBinder<Mutation.WriteBuilder> binder = builder.set(field.getName());
             switch(field.getType().getCode()) {
                 case STRING:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getString(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getString(fieldName));
                     break;
                 case BYTES:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getBytes(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getBytes(fieldName));
                     break;
                 case BOOL:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getBoolean(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getBoolean(fieldName));
                     break;
                 case INT64:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getLong(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getLong(fieldName));
                     break;
                 case FLOAT64:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getDouble(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getDouble(fieldName));
                     break;
                 case DATE:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getDate(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getDate(fieldName));
                     break;
                 case TIMESTAMP:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getTimestamp(fieldName));
                     break;
                 case STRUCT:
-                    builder = builder.set(field.getName()).to(struct.isNull(field.getName()) ? null : struct.getStruct(field.getName()));
+                    builder = binder.to(isNullField ? null : struct.getStruct(fieldName));
                     break;
                 case ARRAY:
                     switch (field.getType().getArrayElementType().getCode()) {
                         case STRING:
-                            builder = builder.set(field.getName()).toStringArray(struct.isNull(field.getName()) ? null : struct.getStringList(field.getName()));
+                            builder = binder.toStringArray(isNullField ? null : struct.getStringList(fieldName));
                             break;
                         case BYTES:
-                            builder = builder.set(field.getName()).toBytesArray(struct.isNull(field.getName()) ? null : struct.getBytesList(field.getName()));
+                            builder = binder.toBytesArray(isNullField ? null : struct.getBytesList(fieldName));
                             break;
                         case BOOL:
-                            builder = builder.set(field.getName()).toBoolArray(struct.isNull(field.getName()) ? null : struct.getBooleanArray(field.getName()));
+                            builder = binder.toBoolArray(isNullField ? null : struct.getBooleanArray(fieldName));
                             break;
                         case INT64:
-                            builder = builder.set(field.getName()).toInt64Array(struct.isNull(field.getName()) ? null : struct.getLongArray(field.getName()));
+                            builder = binder.toInt64Array(isNullField ? null : struct.getLongArray(fieldName));
                             break;
                         case FLOAT64:
-                            builder = builder.set(field.getName()).toFloat64Array(struct.isNull(field.getName()) ? null : struct.getDoubleArray(field.getName()));
+                            builder = binder.toFloat64Array(isNullField ? null : struct.getDoubleArray(fieldName));
                             break;
                         case DATE:
-                            builder = builder.set(field.getName()).toDateArray(struct.isNull(field.getName()) ? null : struct.getDateList(field.getName()));
+                            builder = binder.toDateArray(isNullField ? null : struct.getDateList(fieldName));
                             break;
                         case TIMESTAMP:
-                            builder = builder.set(field.getName()).toTimestampArray(struct.isNull(field.getName()) ? null : struct.getTimestampList(field.getName()));
+                            builder = binder.toTimestampArray(isNullField ? null : struct.getTimestampList(fieldName));
                             break;
                         case STRUCT:
                             // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2018/10/26)
-                            //builder = builder.set(field.getName()).toStructArray(struct.getStructList(field.getName()));
+                            //builder = binder.toStructArray(isNullField ? null : struct.getStructList(fieldName));
                             break;
                         case ARRAY:
                             // NOT SUPPOERTED TO STORE ARRAY IN ARRAY FIELD! (2018/10/26)
@@ -140,49 +144,51 @@ public class StructUtil {
         final int columnCount = meta.getColumnCount();
         Struct.Builder builder = Struct.newBuilder();
         for (int column = 1; column <= columnCount; ++column) {
+            final ValueBinder<Struct.Builder> binder = builder.set(meta.getColumnName(column));
             switch (meta.getColumnType(column)) {
                 case Types.CHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    builder = binder.to(resultSet.getString(column));
                     break;
                 case Types.NUMERIC:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBigDecimal(column).doubleValue());
+                    builder = binder.to(resultSet.getBigDecimal(column).doubleValue());
                     break;
                 case Types.DECIMAL:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBigDecimal(column).doubleValue());
+                    builder = binder.to(resultSet.getBigDecimal(column).doubleValue());
                     break;
                 case Types.INTEGER:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getInt(column));
+                    builder = binder.to(resultSet.getInt(column));
                     break;
                 case Types.SMALLINT:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getShort(column));
+                    builder = binder.to(resultSet.getShort(column));
                     break;
                 case Types.FLOAT:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getFloat(column));
+                    builder = binder.to(resultSet.getFloat(column));
                     break;
                 case Types.REAL:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getFloat(column));
+                    builder = binder.to(resultSet.getFloat(column));
                     break;
                 case Types.DOUBLE:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getDouble(column));
+                    builder = binder.to(resultSet.getDouble(column));
                     break;
                 case Types.VARCHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    builder = binder.to(resultSet.getString(column));
                     break;
                 case Types.BOOLEAN:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBoolean(column));
+                    builder = binder.to(resultSet.getBoolean(column));
                     break;
                 case Types.DATALINK:
                     break;
                 case Types.DATE:
                     final LocalDate localDate = resultSet.getDate(column).toLocalDate();
-                    builder = builder.set(meta.getColumnName(column)).to(Date.fromYearMonthDay(localDate.getYear(), localDate.getMonthValue(), localDate.getDayOfMonth()));
+                    final Date date = Date.fromYearMonthDay(localDate.getYear(), localDate.getMonthValue(), localDate.getDayOfMonth());
+                    builder = binder.to(date);
                     break;
                 case Types.TIME:
                     final Time time = resultSet.getTime(column);
-                    builder = builder.set(meta.getColumnName(column)).to(time.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
+                    builder = binder.to(time.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
                     break;
                 case Types.TIMESTAMP:
-                    builder = builder.set(meta.getColumnName(column)).to(Timestamp.of(resultSet.getTimestamp(column)));
+                    builder = binder.to(Timestamp.of(resultSet.getTimestamp(column)));
                     break;
                 case Types.JAVA_OBJECT:
                     break;
@@ -206,43 +212,111 @@ public class StructUtil {
                     break;
                 case Types.TIME_WITH_TIMEZONE:
                     final Time timeWT = resultSet.getTime(column);
-                    builder = builder.set(meta.getColumnName(column)).to(timeWT.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
+                    builder = binder.to(timeWT.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
                     break;
                 case Types.TIMESTAMP_WITH_TIMEZONE:
-                    builder = builder.set(meta.getColumnName(column)).to(Timestamp.of(resultSet.getTimestamp(column)));
+                    builder = binder.to(Timestamp.of(resultSet.getTimestamp(column)));
                     break;
                 case Types.LONGVARCHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getString(column));
+                    builder = binder.to(resultSet.getString(column));
                     break;
                 case Types.BINARY:
-                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
                     break;
                 case Types.VARBINARY:
-                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
                     break;
                 case Types.LONGVARBINARY:
-                    builder = builder.set(meta.getColumnName(column)).to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
                     break;
                 case Types.BIGINT:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getLong(column));
+                    builder = binder.to(resultSet.getLong(column));
                     break;
                 case Types.TINYINT:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getByte(column));
+                    builder = binder.to(resultSet.getByte(column));
                     break;
                 case Types.BIT:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getBoolean(column));
+                    builder = binder.to(resultSet.getBoolean(column));
                     break;
                 case Types.ROWID:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getRowId(column).toString());
+                    builder = binder.to(resultSet.getRowId(column).toString());
                     break;
                 case Types.NVARCHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    builder = binder.to(resultSet.getNString(column));
                     break;
                 case Types.NCHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    builder = binder.to(resultSet.getNString(column));
                     break;
                 case Types.LONGNVARCHAR:
-                    builder = builder.set(meta.getColumnName(column)).to(resultSet.getNString(column));
+                    builder = binder.to(resultSet.getNString(column));
+                    break;
+            }
+        }
+        return builder.build();
+    }
+
+    public static List<Struct> from(final MutationGroup mutationGroup) {
+        final List<Struct> structs = mutationGroup.attached().stream()
+                .map(StructUtil::from)
+                .collect(Collectors.toList());
+        structs.add(StructUtil.from(mutationGroup.primary()));
+        return structs;
+    }
+
+    public static Struct from(final Mutation mutation) {
+        Struct.Builder builder = Struct.newBuilder();
+        for(final Map.Entry<String, Value> column : mutation.asMap().entrySet()) {
+            final Value value = column.getValue();
+            final ValueBinder<Struct.Builder> binder = builder.set(column.getKey());
+            switch(value.getType().getCode()) {
+                case DATE:
+                    builder = binder.to(value.isNull() ? null : value.getDate());
+                    break;
+                case INT64:
+                    builder = binder.to(value.isNull() ? null : value.getInt64());
+                    break;
+                case STRING:
+                    builder = binder.to(value.isNull() ? null : value.getString());
+                    break;
+                case TIMESTAMP:
+                    builder = binder.to(value.isNull() ? null : value.getTimestamp());
+                    break;
+                case BOOL:
+                    builder = binder.to(value.isNull() ? null : value.getBool());
+                    break;
+                case BYTES:
+                    builder = binder.to(value.isNull() ? null : value.getBytes());
+                    break;
+                case FLOAT64:
+                    builder = binder.to(value.isNull() ? null : value.getFloat64());
+                    break;
+                case STRUCT:
+                    builder = binder.to(value.isNull() ? null : value.getStruct());
+                    break;
+                case ARRAY:
+                    switch (value.getType().getArrayElementType().getCode()) {
+                        case DATE:
+                            builder = binder.toDateArray(value.isNull() ? null : value.getDateArray());
+                            break;
+                        case INT64:
+                            builder = binder.toInt64Array(value.isNull() ? null : value.getInt64Array());
+                            break;
+                        case STRING:
+                            builder = binder.toStringArray(value.isNull() ? null : value.getStringArray());
+                            break;
+                        case TIMESTAMP:
+                            builder = binder.toTimestampArray(value.isNull() ? null : value.getTimestampArray());
+                            break;
+                        case BOOL:
+                            builder = binder.toBoolArray(value.isNull() ? null : value.getBoolArray());
+                            break;
+                        case BYTES:
+                            builder = binder.toBytesArray(value.isNull() ? null : value.getBytesArray());
+                            break;
+                        case FLOAT64:
+                            builder = binder.toFloat64Array(value.isNull() ? null : value.getFloat64Array());
+                            break;
+                    }
                     break;
             }
         }
@@ -293,26 +367,26 @@ public class StructUtil {
         List list = new ArrayList<>();
         switch (field.getType().getArrayElementType().getCode()) {
             case BOOL:
-                    struct.getBooleanList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getBooleanList(field.getName()).stream().forEach(list::add);
+                return list;
             case INT64:
-                    struct.getLongList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getLongList(field.getName()).stream().forEach(list::add);
+                return list;
             case FLOAT64:
-                    struct.getDoubleList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getDoubleList(field.getName()).stream().forEach(list::add);
+                return list;
             case STRING:
-                    struct.getStringList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getStringList(field.getName()).stream().forEach(list::add);
+                return list;
             case BYTES:
-                    struct.getBytesList(field.getName()).stream().map((ByteArray::toBase64)).forEach(list::add);
-                    return list;
+                struct.getBytesList(field.getName()).stream().map((ByteArray::toBase64)).forEach(list::add);
+                return list;
             case TIMESTAMP:
-                    struct.getTimestampList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getTimestampList(field.getName()).stream().forEach(list::add);
+                return list;
             case DATE:
-                    struct.getDateList(field.getName()).stream().forEach(list::add);
-                    return list;
+                struct.getDateList(field.getName()).stream().forEach(list::add);
+                return list;
             case STRUCT:
                 List<Map<String,Object>> maps = new ArrayList<>();
                 for (Struct childStruct : struct.getStructList(field.getName())) {
@@ -330,39 +404,41 @@ public class StructUtil {
     }
 
     private static void setJsonFieldValue(JsonObject obj, Type.StructField field, Struct struct) {
+        final String fieldName = field.getName();
+        final boolean isNullField = struct.isNull(fieldName);
         switch (field.getType().getCode()) {
             case BOOL:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getBoolean(field.getName()));
+                obj.addProperty(fieldName, isNullField ? null : struct.getBoolean(fieldName));
                 break;
             case INT64:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getLong(field.getName()));
+                obj.addProperty(fieldName, isNullField ? null : struct.getLong(fieldName));
                 break;
             case FLOAT64:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getDouble(field.getName()));
+                obj.addProperty(fieldName, isNullField ? null : struct.getDouble(fieldName));
                 break;
             case STRING:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getString(field.getName()));
+                obj.addProperty(fieldName, isNullField ? null : struct.getString(fieldName));
                 break;
             case BYTES:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getBytes(field.getName()).toBase64());
+                obj.addProperty(fieldName, isNullField ? null : struct.getBytes(fieldName).toBase64());
                 break;
             case TIMESTAMP:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getTimestamp(field.getName()).toString());
+                obj.addProperty(fieldName, isNullField ? null : struct.getTimestamp(fieldName).toString());
                 break;
             case DATE:
-                obj.addProperty(field.getName(), struct.isNull(field.getName()) ? null : struct.getDate(field.getName()).toString());
+                obj.addProperty(fieldName, isNullField ? null : struct.getDate(fieldName).toString());
                 break;
             case STRUCT:
-                if(struct.isNull(field.getName())) {
+                if(isNullField) {
                     obj.add(field.getName(), null);
                     return;
                 }
-                Struct childStruct = struct.getStruct(field.getName());
+                Struct childStruct = struct.getStruct(fieldName);
                 JsonObject childObj = new JsonObject();
                 for(Type.StructField childField : childStruct.getType().getStructFields()) {
                     setJsonFieldValue(childObj, childField, childStruct);
                 }
-                obj.add(field.getName(), childObj);
+                obj.add(fieldName, childObj);
                 break;
             case ARRAY:
                 setJsonArrayFieldValue(obj, field, struct);
