@@ -14,6 +14,7 @@ import org.joda.time.*;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -331,11 +332,13 @@ public class AvroUtil {
                 return builder.set(field.name()).to(intvalue);
             case LONG:
                 final Long longvalue = (Long)record.get(field.name());
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())) {
+                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
                     if(longvalue == null) {
                         return builder.set(field.name()).to((Timestamp)null);
                     }
-                    return builder.set(field.name()).to(Timestamp.ofTimeMicroseconds(longvalue * 1000));
+                    final Long microseconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
+                    return builder.set(field.name()).to(Timestamp.ofTimeMicroseconds(microseconds));
                 }
                 return builder.set(field.name()).to(longvalue);
             case FLOAT:
@@ -416,17 +419,19 @@ public class AvroUtil {
                 }
             case LONG:
                 final List<Long> longvalues = (List<Long>)record.get(field.name());
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())) {
+                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
                     if(longvalues == null) {
                         return builder.set(field.name()).toTimestampArray(null);
                     }
                     final List<Timestamp> timestampList = new ArrayList<>();
-                    for(final Long epocmills : longvalues) {
-                        if(epocmills == null) {
+                    for(final Long longvalue : longvalues) {
+                        if(longvalue == null) {
                             timestampList.add(null);
                             continue;
                         }
-                        final Timestamp timestamp = Timestamp.ofTimeMicroseconds(epocmills * 1000);
+                        final Long epochmicros = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
+                        final Timestamp timestamp = Timestamp.ofTimeMicroseconds(epochmicros);
                         timestampList.add(timestamp);
                     }
                     return builder.set(field.name()).toTimestampArray(timestampList);
