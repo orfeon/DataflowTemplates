@@ -1,0 +1,35 @@
+{
+  "name": "JdbcToAvro",
+  "description": "Pipeline to dump records to Avro file on GCS from Jdbc query results.",
+  "parameters": [{
+    "name": "query",
+    "label": "SQL Query text",
+    "help_text": "SQL Query text to read records from Cloud Spanner."
+  },
+  {
+    "name": "driverClass",
+    "label": "DriverClass",
+    "help_text": "Username to login database"
+  },
+  {
+    "name": "connectionString",
+    "label": "ConnectionString",
+    "help_text": "Username to login database"
+  },
+  {
+    "name": "username",
+    "label": "Username",
+    "help_text": "Username to login database"
+  },
+  {
+    "name": "password",
+    "label": "Password",
+    "help_text": "Password to login database"
+  },
+  {
+    "name": "output",
+    "label": "Output GCS file prefix",
+    "help_text": "Path and filename prefix for writing output avro files. ex: gs://MyBucket/xxx",
+    "regexes": ["^gs:\/\/[^\n\r]+$"]
+  }]
+}
