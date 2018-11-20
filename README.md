@@ -11,6 +11,7 @@ This templates target use cases that official templates do not cover.
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
+* [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
 
 ## Getting Started
@@ -149,6 +150,26 @@ Template parameters are same as SpannerToText.
 | databaseId      | String | Spanner databaseID you will recover.             |
 | table           | String | Spanner table name to insert records.            |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+
+
+### BigQueryToSpanner
+
+BigQueryToSpanner enables you to query from BigQuery and write results to specified Spanner table using template.
+Template parameters are same as SpannerToText.
+Spanner destination table must be created.
+
+| Parameter       | Type   | Description                                        |
+|-----------------|--------|----------------------------------------------------|
+| query           | String | SQL query to read record from BigQuery             |
+| outputProjectId | String | projectID for Spanner you will write query result. |
+| outputInstanceId| String | Spanner instanceID you will write query result.    |
+| outputDatabaseId| String | Spanner databaseID you will write query result.    |
+| outputTable     | String | Spanner table name you will write query result.    |
+| mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+| outputError     | String | GCS path to output error record as avro files.     |
+
+* Spanner output table must be created until start template.
+* Some BigQuery schema type will be converted to STRING (ex: DATE -> STRING) by BigQuery.
 
 
 ### JdbcToAvro

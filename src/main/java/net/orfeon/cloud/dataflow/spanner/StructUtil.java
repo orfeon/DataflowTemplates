@@ -8,6 +8,8 @@ import com.google.cloud.spanner.*;
 import com.google.cloud.spanner.Struct;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.orfeon.cloud.dataflow.storage.AvroUtil;
+import org.apache.beam.sdk.io.gcp.bigquery.SchemaAndRecord;
 import org.apache.beam.sdk.io.gcp.spanner.MutationGroup;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -321,6 +323,10 @@ public class StructUtil {
             }
         }
         return builder.build();
+    }
+
+    public static Struct from(SchemaAndRecord record) {
+        return AvroUtil.convertStruct(record.getRecord());
     }
 
     public static Object getFieldValue(final String fieldName, final Struct struct) {

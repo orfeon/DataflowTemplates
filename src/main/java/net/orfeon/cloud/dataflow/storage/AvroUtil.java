@@ -14,7 +14,6 @@ import org.joda.time.*;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -307,20 +306,17 @@ public class AvroUtil {
     }
 
     private static Struct.Builder setFieldValue(Struct.Builder builder, Schema.Field field, Schema type, GenericRecord record) {
+        //ValueBinder<Struct.Builder> binder = builder.set(field.name());
+        final boolean isNullField = record.get(field.name()) == null;
         switch (type.getType()) {
             case STRING:
-                return builder.set(field.name()).to(record.get(field.name()) == null ? null : record.get(field.name()).toString());
+                return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case BYTES:
                 return builder.set(field.name()).to((ByteArray) record.get(field.name()));
             case ENUM:
-                return builder.set(field.name()).to(record.get(field.name()) == null ? null : record.get(field.name()).toString());
+                return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case INT:
-                final Long intvalue;
-                if(record.get(field.name()) == null) {
-                    intvalue = null;
-                } else {
-                    intvalue = new Long((Integer)record.get(field.name()));
-                }
+                final Long intvalue = isNullField ? null : new Long((Integer)record.get(field.name()));
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
                     if(intvalue == null) {
                         return builder.set(field.name()).to((Date)null);
@@ -342,7 +338,7 @@ public class AvroUtil {
                 }
                 return builder.set(field.name()).to(longvalue);
             case FLOAT:
-                return builder.set(field.name()).to((Double) record.get(field.name()));
+                return builder.set(field.name()).to((Double)record.get(field.name()));
             case DOUBLE:
                 return builder.set(field.name()).to((Double)record.get(field.name()));
             case BOOLEAN:
@@ -373,7 +369,6 @@ public class AvroUtil {
                 } else {
                     return setArrayFieldValue(builder, field, field.schema().getElementType(), record);
                 }
-                return builder;
             case NULL:
                 return builder;
             default:
@@ -382,6 +377,7 @@ public class AvroUtil {
     }
 
     private static Struct.Builder setArrayFieldValue(Struct.Builder builder, Schema.Field field, Schema type, GenericRecord record) {
+        //final ValueBinder<Struct.Builder> binder = builder.set(field.name());
         switch (type.getType()) {
             case STRING:
                 if(record.get(field.name()) == null) {
@@ -454,7 +450,7 @@ public class AvroUtil {
                 //    final Struct childStruct = convertStruct(childRecord);
                 //    structList.add(childStruct);
                 //}
-                //return builder.set(field.name()).toStructArray(structList);
+                //return binder.toStructArray(structList);
                 return builder;
             case MAP:
                 return builder;
