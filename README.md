@@ -131,7 +131,7 @@ Spanner destination table must be created.
 | outputProjectId | String | projectID for Spanner you will write query result. |
 | outputInstanceId| String | Spanner instanceID you will write query result.    |
 | outputDatabaseId| String | Spanner databaseID you will write query result.    |
-| outputTable     | String | Spanner table name you will write query result.    |
+| table           | String | Spanner table name you will write query result.    |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
@@ -161,10 +161,10 @@ Spanner destination table must be created.
 | Parameter       | Type   | Description                                        |
 |-----------------|--------|----------------------------------------------------|
 | query           | String | SQL query to read record from BigQuery             |
-| outputProjectId | String | projectID for Spanner you will write query result. |
-| outputInstanceId| String | Spanner instanceID you will write query result.    |
-| outputDatabaseId| String | Spanner databaseID you will write query result.    |
-| outputTable     | String | Spanner table name you will write query result.    |
+| projectId       | String | projectID for Spanner you will write query result. |
+| instanceId      | String | Spanner instanceID you will write query result.    |
+| databaseId      | String | Spanner databaseID you will write query result.    |
+| table           | String | Spanner table name you will write query result.    |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
 

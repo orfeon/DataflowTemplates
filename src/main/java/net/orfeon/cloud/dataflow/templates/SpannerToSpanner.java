@@ -47,8 +47,8 @@ public class SpannerToSpanner {
         void setOutputDatabaseId(ValueProvider<String> databaseId);
 
         @Description("Spanner table name to store query result")
-        ValueProvider<String> getOutputTable();
-        void setOutputTable(ValueProvider<String> databaseId);
+        ValueProvider<String> getTable();
+        void setTable(ValueProvider<String> databaseId);
 
         @Description("Spanner table name to store query result")
         ValueProvider<String> getOutputError();
@@ -81,7 +81,7 @@ public class SpannerToSpanner {
         final Pipeline pipeline = Pipeline.create(options);
         final SpannerWriteResult result = pipeline
                 .apply("QuerySpanner", SpannerSimpleIO.read(options.getInputProjectId(), options.getInputInstanceId(), options.getInputDatabaseId(), options.getQuery(), options.getTimestampBound()))
-                .apply("ConvertToMutation", ParDo.of(new StructToMutationDoFn(options.getOutputTable(), options.getMutationOp())))
+                .apply("ConvertToMutation", ParDo.of(new StructToMutationDoFn(options.getTable(), options.getMutationOp())))
                 .apply("StoreSpanner", SpannerIO.write()
                         .withFailureMode(SpannerIO.FailureMode.REPORT_FAILURES)
                         .withProjectId(options.getOutputProjectId())
