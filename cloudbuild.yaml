@@ -1,0 +1,21 @@
+steps:
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToText","-Pdataflow-runner",
+         "-Dexec.args=--project=$PROJECT_ID --stagingLocation=gs://$PROJECT_ID-templates/staging --templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToText --runner=DataflowRunner"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToAvro","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToAvro' '--runner=DataflowRunner'"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToBigQuery","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToBigQuery' '--runner=DataflowRunner'"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToSpanner","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToSpanner' '--runner=DataflowRunner'"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.AvroToSpanner","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/AvroToSpanner' '--runner=DataflowRunner'"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.BigQueryToSpanner","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/BigQueryToSpanner' '--runner=DataflowRunner'"]
+
+
