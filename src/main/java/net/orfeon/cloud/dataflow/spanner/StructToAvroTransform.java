@@ -85,11 +85,32 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                             }
                             return avroSink;
                         }, Requirements.requiresSideInputs(schemaView)))
-                        .withNaming(key -> FileIO.Write.defaultNaming(DEFAULT_KEY.equals(key) ? "" : key, ".avro"))
-                        .to(this.output)
+                        .withNaming(key -> FileIO.Write.defaultNaming(
+                                buildPrefixFileName(this.output.get(), key), ".avro"))
+                        .to(ValueProvider.NestedValueProvider.of(this.output, s -> buildPrefixDirName(s)))
                         .withDestinationCoder(StringUtf8Coder.of()));
 
         return PDone.in(writeFilesResult.getPipeline());
+    }
+
+    private static String buildPrefixDirName(String output) {
+        final String[] paths = output.replaceAll("gs://", "").split("/", -1);
+        final StringBuilder sb = new StringBuilder("gs://");
+        final int end = Math.max(paths.length-1, 1);
+        for(int i=0; i<end; i++) {
+            sb.append(paths[i]);
+            sb.append("/");
+        }
+        return sb.toString();
+    }
+
+    private static String buildPrefixFileName(String output, String key) {
+        final String prefix = DEFAULT_KEY.equals(key) ? "" : key;
+        final String[] paths = output.replaceAll("gs://", "").split("/", -1);
+        if(paths.length > 1) {
+            return paths[paths.length-1] + prefix;
+        }
+        return prefix;
     }
 
 }
