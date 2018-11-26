@@ -22,6 +22,8 @@ import java.util.*;
 
 public class SpannerSimpleIO {
 
+    private static final String SQL_SPLITTER = "--SPLITTER--";
+
     public static Read read(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
                             ValueProvider<String> query, ValueProvider<String> timestampBound) {
         return new Read(projectId, instanceId, databaseId, query, timestampBound);
@@ -34,8 +36,8 @@ public class SpannerSimpleIO {
 
     public static class Read extends PTransform<PBegin, PCollection<Struct>> {
 
-        public final TupleTag<KV<Integer, KV<BatchTransactionId, Partition>>> tagOutputPartition
-                = new TupleTag<KV<Integer, KV<BatchTransactionId, Partition>>>(){ private static final long serialVersionUID = 1L; };
+        public final TupleTag<KV<String, KV<BatchTransactionId, Partition>>> tagOutputPartition
+                = new TupleTag<KV<String, KV<BatchTransactionId, Partition>>>(){ private static final long serialVersionUID = 1L; };
         public final TupleTag<Struct> tagOutputStruct
                 = new TupleTag<Struct>(){ private static final long serialVersionUID = 1L; };
 
@@ -56,7 +58,8 @@ public class SpannerSimpleIO {
 
         public PCollection<Struct> expand(PBegin begin) {
             final PCollection<String> queries = begin.getPipeline()
-                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()));
+                    .apply("SupplyQuery", Create.ofProvider(this.query, StringUtf8Coder.of()))
+                    .apply("SplitQuery", FlatMapElements.into(TypeDescriptors.strings()).via(s -> Arrays.asList(s.split(SQL_SPLITTER))));
 
             final PCollectionTuple results = queries
                     .apply("ExecuteQuery", ParDo.of(new QueryPartitionSpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.timestampBound)).withOutputTags(tagOutputPartition, TupleTagList.of(tagOutputStruct)));
@@ -71,7 +74,7 @@ public class SpannerSimpleIO {
                     .apply("Flatten", Flatten.pCollections());
         }
 
-        public class QueryPartitionSpannerDoFn extends DoFn<String, KV<Integer, KV<BatchTransactionId, Partition>>> {
+        public class QueryPartitionSpannerDoFn extends DoFn<String, KV<String, KV<BatchTransactionId, Partition>>> {
 
             private final Logger log = LoggerFactory.getLogger(QueryPartitionSpannerDoFn.class);
 
@@ -129,7 +132,8 @@ public class SpannerSimpleIO {
                     log.info(String.format("Query [%s] (with timestamp bound [%s]) divided to [%d] partitions.", query, tb, partitions.size()));
                     for (int i = 0; i < partitions.size(); ++i) {
                         final KV<BatchTransactionId, Partition> value = KV.of(transaction.getBatchTransactionId(), partitions.get(i));
-                        final KV<Integer, KV<BatchTransactionId, Partition>> kv = KV.of(i, value);
+                        final String key = String.format("%d-%s", i, query);
+                        final KV<String, KV<BatchTransactionId, Partition>> kv = KV.of(key, value);
                         c.output(kv);
                     }
                 } catch (SpannerException e) {
@@ -161,7 +165,7 @@ public class SpannerSimpleIO {
 
         }
 
-        public class ReadStructSpannerDoFn extends DoFn<KV<Integer, Iterable<KV<BatchTransactionId, Partition>>>, Struct> {
+        public class ReadStructSpannerDoFn extends DoFn<KV<String, Iterable<KV<BatchTransactionId, Partition>>>, Struct> {
 
             private final Logger log = LoggerFactory.getLogger(ReadStructSpannerDoFn.class);
 
@@ -194,24 +198,21 @@ public class SpannerSimpleIO {
 
             @ProcessElement
             public void processElement(ProcessContext c) {
-                final KV<Integer, Iterable<KV<BatchTransactionId, Partition>>> kv = c.element();
-                final int partitionNumber = kv.getKey();
+                final KV<String, Iterable<KV<BatchTransactionId, Partition>>> kv = c.element();
+                final String partitionNumberQuery = kv.getKey();
                 final KV<BatchTransactionId, Partition> value = kv.getValue().iterator().next();
                 final BatchTransactionId transactionId = value.getKey();
                 final BatchReadOnlyTransaction transaction = this.batchClient.batchReadOnlyTransaction(transactionId); // DO NOT CLOSE!!!
                 final Partition partition = value.getValue();
 
                 try(final ResultSet resultSet = transaction.execute(partition)) {
-                    log.info(String.format("Started %d th partition[%s] query.", partitionNumber, partition));
+                    log.info(String.format("Started %s th partition[%s] query.", partitionNumberQuery.split("-")[0], partition));
                     int count = 0;
                     while (resultSet.next()) {
                         c.output(resultSet.getCurrentRowAsStruct());
                         count++;
-                        if (count % 100000 == 0) {
-                            log.info(String.format("%d th partition processed %d record", partitionNumber, count));
-                        }
                     }
-                    log.info(String.format("%d th partition completed to read record: [%d]", partitionNumber, count));
+                    log.info(String.format("%s th partition completed to read record: [%d]", partitionNumberQuery.split("-")[0], count));
                 }
             }
 

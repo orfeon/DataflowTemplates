@@ -79,6 +79,7 @@ For example, query that includes 'order by', 'limit' operation can not have Dist
 Please run EXPLAIN for query plan details before running template.
 * [timestampBound](https://cloud.google.com/spanner/docs/timestamp-bounds) must be within one hour.
 * timestampBound format example in japan: '2018-10-01T18:00:00+09:00'.
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
 
 
 ### SpannerToAvro
@@ -98,6 +99,7 @@ Template parameters are same as SpannerToText.
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
 
 * Some spanner data type will be converted. Date will be converted to epoch days (Int32), Timestamp will be converted to epoch milliseconds (Int64).
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
 
 
 ### SpannerToBigQuery
@@ -114,6 +116,8 @@ BigQuery destination table must be created.
 | query           | String | SQL query to read record from Spanner            |
 | output          | String | Destination BigQuery table. format {dataset}.{table} |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
 
 
 ### SpannerToSpanner
@@ -135,6 +139,8 @@ Spanner destination table must be created.
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
 
 
 ### AvroToSpanner
