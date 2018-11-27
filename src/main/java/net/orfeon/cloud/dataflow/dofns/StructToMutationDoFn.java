@@ -1,7 +1,8 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.dofns;
 
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.util.converter.StructToMutationConverter;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public class StructToMutationDoFn extends DoFn<Struct, Mutation> {
     @ProcessElement
     public void processElement(ProcessContext c) {
         Struct struct = c.element();
-        Mutation mutation = StructUtil.toMutation(struct, this.table, this.mutationOp);
+        Mutation mutation = StructToMutationConverter.convert(struct, this.table, this.mutationOp);
         c.output(mutation);
     }
 

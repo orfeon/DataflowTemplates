@@ -1,95 +1,40 @@
-package net.orfeon.cloud.dataflow.storage;
+package net.orfeon.cloud.dataflow.util.converter;
 
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
-import com.google.cloud.spanner.Type;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.joda.time.*;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.List;
 
-public class AvroUtilTest {
+public class StructAndRecordConverterTest {
 
     private static final MutableDateTime EPOCHDATETIME = new MutableDateTime(0, DateTimeZone.UTC);
 
     @Test
     public void testSchema() {
-        Date date1 = Date.fromYearMonthDay(2018, 9, 1);
-        String str1 = "2018-09-01T12:00+09:00";
-        Instant instant1 = Instant.parse(str1);
-        Timestamp timestamp1 = Timestamp.ofTimeMicroseconds(instant1.getMillis() * 1000);
-
-        Struct struct1 = Struct.newBuilder()
-                .set("cbf").to(true)
-                .set("cif").to(12)
-                .set("cff").to(0.005)
-                .set("cdf").to(date1)
-                .set("ctf").to(timestamp1)
-                .set("csf").to("This is a pen")
-                .build();
-
-        Schema schema = AvroUtil.convertSchemaFromStruct(struct1);
+        Struct struct1 = ConverterDataSupplier.createSimpleStruct();
+        Schema schema = StructToRecordConverter.convertSchema(struct1);
         System.out.println(schema);
     }
 
     @Test
-    public void testConvert() {
-
-        Date date1 = Date.fromYearMonthDay(2018, 9, 1);
-        Date date2 = Date.fromYearMonthDay(2018, 10, 1);
-        String str1 = "2018-09-01T12:00+09:00";
-        String str2 = "2018-10-01T12:00+09:00";
-        Instant instant1 = Instant.parse(str1);
-        Instant instant2 = Instant.parse(str2);
-        Timestamp timestamp1 = Timestamp.ofTimeMicroseconds(instant1.getMillis() * 1000);
-        Timestamp timestamp2 = Timestamp.ofTimeMicroseconds(instant2.getMillis() * 1000);
-
-        Struct struct1 = Struct.newBuilder()
-                .set("cbf").to(true)
-                .set("cif").to(12)
-                .set("cff").to(0.005)
-                .set("cdf").to(date1)
-                .set("ctf").to(timestamp1)
-                .set("csf").to("This is a pen")
-                .build();
-
-        Type.StructField f1 = Type.StructField.of("cbf", Type.bool());
-        Type.StructField f2 = Type.StructField.of("cif", Type.int64());
-        Type.StructField f3 = Type.StructField.of("cff", Type.float64());
-        Type.StructField f4 = Type.StructField.of("cdf", Type.date());
-        Type.StructField f5 = Type.StructField.of("ctf", Type.timestamp());
-        Type.StructField f6 = Type.StructField.of("csf", Type.string());
-
-        Struct struct2 = Struct.newBuilder()
-                .set("bf").to(false)
-                .set("if").to(-12)
-                .set("ff").to(110.005)
-                .set("sf").to("I am a pen")
-                .set("df").to(date2)
-                .set("tf").to(timestamp2)
-                .set("nf").to((String)null)
-                .set("lnf").to((Long)null)
-                .set("dnf").to((Date)null)
-                .set("tnf").to((Timestamp)null)
-                .set("rf").to(struct1)
-                .set("arf").toStructArray(Type.struct(f1,f2, f3, f4, f5, f6), Arrays.asList(struct1))
-                .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
-                .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
-                .set("adf").toDateArray(Arrays.asList(date1, date2))
-                .set("anf").toInt64Array((List<Long>)null)
-                .set("amf").toInt64Array(Arrays.asList(null, 2L, 3L))
-                .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
-                .build();
-
-        Schema schema = AvroUtil.convertSchemaFromStruct(struct2);
+    public void test() {
+        Struct struct1 = ConverterDataSupplier.createSimpleStruct();
+        Struct struct2 = ConverterDataSupplier.createNestedStruct(true);
+        Schema schema = StructToRecordConverter.convertSchema(struct2);
         System.out.println(schema);
-        GenericRecord r = AvroUtil.convertGenericRecord(struct2, schema);
+        GenericRecord r = StructToRecordConverter.convert(struct2, schema);
         System.out.println(r);
+
+        Date date1 = struct1.getDate("cdf");
+        Date date2 = struct2.getDate("df");
+        Timestamp timestamp1 = struct1.getTimestamp("ctf");
+        Timestamp timestamp2 = struct2.getTimestamp("tf");
 
         Assert.assertFalse((Boolean)r.get("bf"));
         Assert.assertEquals(-12L, (long)r.get("if"));
@@ -125,7 +70,7 @@ public class AvroUtilTest {
         Assert.assertEquals(getEpochDays(date1), a.get("cdf"));
         Assert.assertEquals(timestamp1.getSeconds()*1000, a.get("ctf"));
 
-        Struct struct3 = AvroUtil.convertStruct(r);
+        Struct struct3 = RecordToStructConverter.convert(r);
         System.out.println(struct3);
 
         Assert.assertEquals(struct2.getBoolean("bf"), struct3.getBoolean("bf"));
@@ -148,5 +93,4 @@ public class AvroUtilTest {
         Days days = Days.daysBetween(EPOCHDATETIME, datetime);
         return days.getDays();
     }
-
 }

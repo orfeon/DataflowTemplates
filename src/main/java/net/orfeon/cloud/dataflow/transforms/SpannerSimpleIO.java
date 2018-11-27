@@ -1,4 +1,4 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.transforms;
 
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.spanner.*;

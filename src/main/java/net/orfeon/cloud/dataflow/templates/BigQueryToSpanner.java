@@ -1,9 +1,10 @@
 package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.spanner.StructToAvroTransform;
-import net.orfeon.cloud.dataflow.spanner.StructToMutationDoFn;
-import net.orfeon.cloud.dataflow.spanner.StructUtil;
+import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
+import net.orfeon.cloud.dataflow.dofns.StructToMutationDoFn;
+import net.orfeon.cloud.dataflow.util.converter.MutationToStructConverter;
+import net.orfeon.cloud.dataflow.util.converter.RecordToStructConverter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -66,7 +67,7 @@ public class BigQueryToSpanner {
 
         final Pipeline pipeline = Pipeline.create(options);
         final SpannerWriteResult result = pipeline
-                .apply("QueryBigQuery", BigQueryIO.read(StructUtil::from)
+                .apply("QueryBigQuery", BigQueryIO.read(RecordToStructConverter::convert)
                         .fromQuery(options.getQuery())
                         .usingStandardSql()
                         .withTemplateCompatibility()
@@ -80,7 +81,7 @@ public class BigQueryToSpanner {
                         .withDatabaseId(options.getDatabaseId()));
 
         result.getFailedMutations()
-                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(StructUtil::from))
+                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(MutationToStructConverter::convert))
                 .apply("StoreErrorStorage", new StructToAvroTransform(options.getOutputError(), options.getFieldKey(), options.getUseSnappy()));
 
         pipeline.run();

@@ -1,9 +1,9 @@
 package net.orfeon.cloud.dataflow.spanner;
 
-import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.dofns.StructToTextDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.testing.PAssert;
@@ -136,44 +136,6 @@ public class StructToTextDoFnTest {
                 "{\"key\":\"struct2\",\"bf\":false,\"if\":-12,\"ff\":110.005,\"df\":\"2018-10-01\",\"tf\":\"2018-10-01T03:00:00Z\",\"sf\":\"I am a pen\",\"of\":{\"key\":\"struct1\",\"bf\":true,\"if\":12,\"ff\":0.005,\"df\":\"2018-09-01\",\"tf\":\"2018-09-01T03:00:00Z\",\"sf\":\"This is a pen\",\"nsf\":null,\"asf\":[\"a\",\"b\",\"c\"],\"aif\":[1,2,3],\"naif\":null}}");
 
         pipeline.run();
-    }
-
-    @Test
-    public void testToTableRow() {
-        Date date1 = Date.fromYearMonthDay(2018, 9, 1);
-        Date date2 = Date.fromYearMonthDay(2018, 10, 1);
-        String str1 = "2018-09-01T12:00+09:00";
-        String str2 = "2018-10-01T12:00+09:00";
-        Instant instant1 = Instant.parse(str1);
-        Instant instant2 = Instant.parse(str2);
-        Timestamp timestamp1 = Timestamp.ofTimeMicroseconds(instant1.getMillis() * 1000);
-        Timestamp timestamp2 = Timestamp.ofTimeMicroseconds(instant2.getMillis() * 1000);
-
-        Struct struct = Struct.newBuilder()
-                .set("bf").to(false)
-                .set("if").to(-12)
-                .set("ff").to(110.005)
-                .set("sf").to("I am a pen")
-                .set("df").to(date2)
-                .set("tf").to(timestamp2)
-                .set("nsf").to((String)null)
-                .set("nff").to((Double)null)
-                .set("ndf").to((Date)null)
-                .set("ntf").to((Timestamp)null)
-                .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
-                .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
-                .set("adf").toDateArray(Arrays.asList(date1, date2))
-                .set("atf").toTimestampArray(Arrays.asList(timestamp1, timestamp2))
-                .build();
-
-        Pipeline pipeline = Pipeline.create();
-        PCollection<TableRow> lines = pipeline
-                .apply("CreateDummy", Create.of(struct))
-                .apply("ConvertToJson", ParDo.of(new StructToTableRowDoFn()));
-
-        pipeline.run();
-
-
     }
 
 }

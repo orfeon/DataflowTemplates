@@ -1,7 +1,7 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToTextDoFn;
+import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.dofns.StructToTextDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.*;

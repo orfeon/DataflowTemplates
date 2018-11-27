@@ -1,7 +1,7 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToAvroTransform;
+import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.*;
 

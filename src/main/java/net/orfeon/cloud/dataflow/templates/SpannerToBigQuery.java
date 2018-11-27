@@ -1,11 +1,13 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToTableRowDoFn;
+import com.google.api.services.bigquery.model.TableRow;
+import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.util.converter.StructToTableRowConverter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.options.*;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 
 public class SpannerToBigQuery {
@@ -43,7 +45,7 @@ public class SpannerToBigQuery {
 
         Pipeline pipeline = Pipeline.create(options);
         pipeline.apply("QuerySpanner", SpannerSimpleIO.read(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound()))
-                .apply("ConvertTableRow", ParDo.of(new StructToTableRowDoFn()))
+                .apply("ConvertTableRow", MapElements.into(TypeDescriptor.of(TableRow.class)).via(StructToTableRowConverter::convert))
                 .apply("StoreBigQuery", BigQueryIO.writeTableRows()
                         .to(options.getOutput())
                         .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)

@@ -1,7 +1,7 @@
-package net.orfeon.cloud.dataflow.storage;
+package net.orfeon.cloud.dataflow.transforms;
 
 import com.google.cloud.spanner.Struct;
-import org.apache.avro.generic.GenericRecord;
+import net.orfeon.cloud.dataflow.util.converter.RecordToStructConverter;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.io.AvroIO;
 import org.apache.beam.sdk.options.ValueProvider;
@@ -20,7 +20,7 @@ public class AvroToStructTransform extends PTransform<PBegin, PCollection<Struct
     public final PCollection<Struct> expand(PBegin begin) {
         PCollection<Struct> structs = begin
                 .apply("ReadAvroFiles", AvroIO
-                        .parseGenericRecords((GenericRecord record) -> AvroUtil.convertStruct(record))
+                        .parseGenericRecords(RecordToStructConverter::convert)
                         .withCoder(AvroCoder.of(Struct.class))
                         .from(this.input));
         return structs;

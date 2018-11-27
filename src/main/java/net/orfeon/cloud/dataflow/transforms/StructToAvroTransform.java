@@ -1,7 +1,8 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.transforms;
 
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.storage.AvroUtil;
+import net.orfeon.cloud.dataflow.util.StructUtil;
+import net.orfeon.cloud.dataflow.util.converter.StructToRecordConverter;
 import org.apache.avro.Schema;
 import org.apache.avro.file.CodecFactory;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
@@ -75,11 +76,11 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                                 throw new IllegalArgumentException(String.format("No matched struct to key %s !", key));
                             }
                             final Struct struct = sampleStruct.get(key).iterator().next();
-                            final Schema schema = AvroUtil.convertSchemaFromStruct(struct);
+                            final Schema schema = StructToRecordConverter.convertSchema(struct);
                             final AvroIO.Sink<KV<String,Struct>> avroSink = AvroIO
                                     .sinkViaGenericRecords(schema,
                                             (KV<String, Struct> rstruct, Schema rschema) ->
-                                                    AvroUtil.convertGenericRecord(rstruct.getValue(), rschema));
+                                                    StructToRecordConverter.convert(rstruct.getValue(), rschema));
                             if(useSnappy.get()) {
                                 return avroSink.withCodec(CodecFactory.snappyCodec());
                             }
@@ -94,8 +95,9 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
     }
 
     private static String buildPrefixDirName(String output) {
+        final boolean isgcs = output.startsWith("gs://");
         final String[] paths = output.replaceAll("gs://", "").split("/", -1);
-        final StringBuilder sb = new StringBuilder("gs://");
+        final StringBuilder sb = new StringBuilder(isgcs ? "gs://" : "");
         final int end = Math.max(paths.length-1, 1);
         for(int i=0; i<end; i++) {
             sb.append(paths[i]);

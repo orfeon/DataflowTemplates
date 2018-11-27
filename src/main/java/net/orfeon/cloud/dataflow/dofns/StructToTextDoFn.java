@@ -1,6 +1,8 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.dofns;
 
 import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.util.converter.StructToCsvConverter;
+import net.orfeon.cloud.dataflow.util.converter.StructToJsonConverter;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 
@@ -26,9 +28,9 @@ public class StructToTextDoFn extends DoFn<Struct, String> {
         final Struct struct = c.element();
         final String out;
         if(this.handleJsonType) {
-            out = StructUtil.toJson(struct);
+            out = StructToJsonConverter.convert(struct);
         } else {
-            out = StructUtil.toCsvLine(struct);
+            out = StructToCsvConverter.convert(struct);
         }
         c.output(out);
     }

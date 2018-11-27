@@ -1,8 +1,8 @@
 package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.spanner.StructToAvroTransform;
-import net.orfeon.cloud.dataflow.spanner.StructUtil;
+import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
+import net.orfeon.cloud.dataflow.util.converter.ResultsetToStructConverter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.io.jdbc.JdbcIO;
@@ -64,7 +64,7 @@ public class JdbcToAvro {
                                     s -> String.format(JDBC_URL_TMPL, s.split("\\.")[1], s.split("\\.")[0])))
                             .withUsername(options.getUsername())
                             .withPassword(options.getPassword()))
-                    .withRowMapper(resultSet -> StructUtil.from(resultSet))
+                    .withRowMapper(resultSet -> ResultsetToStructConverter.convert(resultSet))
                     .withCoder(SerializableCoder.of(Struct.class)))
                 .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey(), options.getUseSnappy()));
 

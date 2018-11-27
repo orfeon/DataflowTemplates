@@ -1,7 +1,7 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.spanner.StructToMutationDoFn;
-import net.orfeon.cloud.dataflow.storage.AvroToStructTransform;
+import net.orfeon.cloud.dataflow.dofns.StructToMutationDoFn;
+import net.orfeon.cloud.dataflow.transforms.AvroToStructTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.spanner.SpannerIO;
 import org.apache.beam.sdk.options.*;

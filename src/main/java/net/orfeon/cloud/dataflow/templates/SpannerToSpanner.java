@@ -1,10 +1,10 @@
 package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.spanner.SpannerSimpleIO;
-import net.orfeon.cloud.dataflow.spanner.StructToAvroTransform;
-import net.orfeon.cloud.dataflow.spanner.StructToMutationDoFn;
-import net.orfeon.cloud.dataflow.spanner.StructUtil;
+import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
+import net.orfeon.cloud.dataflow.dofns.StructToMutationDoFn;
+import net.orfeon.cloud.dataflow.util.converter.MutationToStructConverter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.spanner.SpannerIO;
 import org.apache.beam.sdk.io.gcp.spanner.SpannerWriteResult;
@@ -89,7 +89,7 @@ public class SpannerToSpanner {
                         .withDatabaseId(options.getOutputDatabaseId()));
 
         result.getFailedMutations()
-                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(StructUtil::from))
+                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(MutationToStructConverter::convert))
                 .apply("StoreErrorStorage", new StructToAvroTransform(options.getOutputError(), options.getFieldKey(), options.getUseSnappy()));
 
         pipeline.run();
