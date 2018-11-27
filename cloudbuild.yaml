@@ -1,21 +1,35 @@
 steps:
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["cp", "metadata/*", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/"]
+
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToText","-Pdataflow-runner",
-         "-Dexec.args=--project=$PROJECT_ID --stagingLocation=gs://$PROJECT_ID-templates/staging --templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToText --runner=DataflowRunner"]
+         "-Dexec.args=--project=$PROJECT_ID --stagingLocation=gs://$PROJECT_ID-templates/staging --templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/SpannerToText --runner=DataflowRunner"]
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToAvro","-Pdataflow-runner",
-         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToAvro' '--runner=DataflowRunner'"]
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/SpannerToAvro' '--runner=DataflowRunner'"]
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToBigQuery","-Pdataflow-runner",
-         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToBigQuery' '--runner=DataflowRunner'"]
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/SpannerToBigQuery' '--runner=DataflowRunner'"]
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.SpannerToSpanner","-Pdataflow-runner",
-         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/SpannerToSpanner' '--runner=DataflowRunner'"]
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/SpannerToSpanner' '--runner=DataflowRunner'"]
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.AvroToSpanner","-Pdataflow-runner",
-         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/AvroToSpanner' '--runner=DataflowRunner'"]
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/AvroToSpanner' '--runner=DataflowRunner'"]
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.BigQueryToSpanner","-Pdataflow-runner",
-         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/latest/BigQueryToSpanner' '--runner=DataflowRunner'"]
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/BigQueryToSpanner' '--runner=DataflowRunner'"]
 
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["cp", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/*", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}/"]
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["cp", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/*", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}/"]
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["cp", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/*", "gs://$PROJECT_ID-templates/latest/"]
+
+substitutions:
+  _VERSION_MAJOR: "0"
+  _VERSION_MINOR: "0"
+  _VERSION_PATCH: "1"
 
