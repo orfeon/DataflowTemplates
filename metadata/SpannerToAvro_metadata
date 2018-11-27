@@ -32,5 +32,12 @@
     "label": "TimestampBound",
     "help_text": "TimestampBound for query",
     "is_optional": true
-  }]
+  },
+  {
+    "name": "useSnappy",
+    "label": "useSnappy",
+    "help_text": "Use snappy as avro coder or not.(true or false)",
+    "is_optional": true
+  }
+  ]
 }
