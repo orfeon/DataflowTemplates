@@ -1,21 +1,21 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.transforms;
 
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
-import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
-import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
 import org.joda.time.Instant;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.util.Arrays;
 
 public class StructToAvroTransformTest {
+
+    @Rule
+    public final transient TestPipeline pipeline = TestPipeline.create();
+
 
     private final TemporaryFolder tmpDir = new TemporaryFolder();
 
@@ -84,7 +88,6 @@ public class StructToAvroTransformTest {
         final ValueProvider<String> key = ValueProvider.StaticValueProvider.of(null);
         final ValueProvider<Boolean> useSnappy = ValueProvider.StaticValueProvider.of(true);
 
-        final Pipeline pipeline = Pipeline.create();
         pipeline.apply("CreateDummy", Create.of(struct1, struct2))
                 .apply("TransformAndStore", new StructToAvroTransform(output, key, useSnappy));
 
@@ -150,7 +153,6 @@ public class StructToAvroTransformTest {
         final ValueProvider<String> key = ValueProvider.StaticValueProvider.of("key");
         final ValueProvider<Boolean> useSnappy = ValueProvider.StaticValueProvider.of(true);
 
-        final Pipeline pipeline = Pipeline.create();
         pipeline.apply("CreateDummy", Create.of(struct1, struct2))
                 .apply("TransformAndStore", new StructToAvroTransform(output, key, useSnappy));
 

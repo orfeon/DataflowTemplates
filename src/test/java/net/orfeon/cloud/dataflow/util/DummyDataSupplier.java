@@ -1,4 +1,4 @@
-package net.orfeon.cloud.dataflow.util.converter;
+package net.orfeon.cloud.dataflow.util;
 
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
@@ -9,9 +9,9 @@ import org.joda.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 
-public class ConverterDataSupplier {
+public class DummyDataSupplier {
 
-    private ConverterDataSupplier() {
+    private DummyDataSupplier() {
 
     }
 

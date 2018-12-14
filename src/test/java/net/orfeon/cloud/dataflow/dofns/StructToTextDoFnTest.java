@@ -1,33 +1,29 @@
-package net.orfeon.cloud.dataflow.spanner;
+package net.orfeon.cloud.dataflow.dofns;
 
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.dofns.StructToTextDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Instant;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 
+/** Test case for the {@link StructToTextDoFn} class. */
+@RunWith(JUnit4.class)
 public class StructToTextDoFnTest {
 
-    @Before
-    public void setUp() {
-        System.out.println("setup");
-    }
-
-    @After
-    public void tearDown() {
-        System.out.println("teardown");
-    }
+    @Rule
+    public final transient TestPipeline pipeline = TestPipeline.create();
 
     @Test
     public void testJson() {
@@ -46,7 +42,6 @@ public class StructToTextDoFnTest {
                 .set("timestamp").to(Timestamp.parseTimestamp("2018-10-01T12:00:00Z"))
                 .build();
 
-        Pipeline pipeline = Pipeline.create();
         PCollection<String> lines = pipeline
                 .apply("CreateDummy", Create.of(struct1, struct2))
                 .apply("ConvertToJson", ParDo.of(new StructToTextDoFn(ValueProvider.StaticValueProvider.of("json"))));
@@ -78,7 +73,6 @@ public class StructToTextDoFnTest {
                 .set("timestamp").to(Timestamp.parseTimestamp("2018-10-01T12:00:00Z"))
                 .build();
 
-        Pipeline pipeline = Pipeline.create();
         PCollection<String> lines = pipeline
                 .apply("CreateDummy", Create.of(struct1, struct2))
                 .apply("ConvertToCsv", ParDo.of(new StructToTextDoFn(ValueProvider.StaticValueProvider.of("csv"))));

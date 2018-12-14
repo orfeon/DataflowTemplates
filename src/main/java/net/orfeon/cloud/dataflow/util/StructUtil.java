@@ -46,7 +46,7 @@ public class StructUtil {
                 Map<String,Object> map = new HashMap<>();
                 Struct childStruct = struct.getStruct(field.getName());
                 for (Type.StructField childField : childStruct.getType().getStructFields()) {
-                    map.put(field.getName(), getFieldValue(childField, childStruct));
+                    map.put(childField.getName(), getFieldValue(childField, childStruct));
                 }
                 return map;
             case ARRAY:
@@ -84,7 +84,7 @@ public class StructUtil {
                 for (Struct childStruct : struct.getStructList(field.getName())) {
                     Map<String,Object> map = new HashMap<>();
                     for (Type.StructField childField : childStruct.getType().getStructFields()) {
-                        map.put(field.getName(), getFieldValue(childField, childStruct));
+                        map.put(childField.getName(), getFieldValue(childField, childStruct));
                     }
                     maps.add(map);
                 }

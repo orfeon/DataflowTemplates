@@ -1,4 +1,7 @@
 steps:
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["test"]
+
 - name: 'gcr.io/cloud-builders/gsutil'
   args: ["cp", "metadata/*", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/"]
 
