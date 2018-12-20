@@ -493,6 +493,13 @@
       <version>0.67.0-beta</version>
     </dependency>
 
+    <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-kms -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-kms</artifactId>
+      <version>0.74.0-beta</version>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
     <dependency>
       <groupId>mysql</groupId>

@@ -9,12 +9,12 @@
   {
     "name": "driverClass",
     "label": "DriverClass",
-    "help_text": "Username to login database"
+    "help_text": "`com.mysql.cj.jdbc.Driver` or `org.postgresql.Driver`"
   },
   {
-    "name": "connectionString",
-    "label": "ConnectionString",
-    "help_text": "Username to login database"
+    "name": "url",
+    "label": "Connection URL",
+    "help_text": "If connect to Cloud SQL, format: jdbc:mysql://google/{database}?cloudSqlInstance={project}:{region}:{instance}&socketFactory=com.google.cloud.sql.mysql.SocketFactory"
   },
   {
     "name": "username",
@@ -31,5 +31,11 @@
     "label": "Output GCS file prefix",
     "help_text": "Path and filename prefix for writing output avro files. ex: gs://MyBucket/xxx",
     "regexes": ["^gs:\/\/[^\n\r]+$"]
+  },
+  {
+    "name": "cryptoKeyName",
+    "label": "CryptoKeyName",
+    "help_text": "format: projects/{project}/locations/{location}/keyRings/{keyRings}/cryptoKeys/{cryptoKey}",
+    "is_optional": true
   }]
 }

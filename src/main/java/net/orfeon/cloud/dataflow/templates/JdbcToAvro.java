@@ -1,17 +1,12 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.transforms.JdbcSimpleIO;
 import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
-import net.orfeon.cloud.dataflow.util.converter.ResultsetToStructConverter;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.SerializableCoder;
-import org.apache.beam.sdk.io.jdbc.JdbcIO;
 import org.apache.beam.sdk.options.*;
 
 
 public class JdbcToAvro {
-
-    private static final String JDBC_URL_TMPL = "jdbc:mysql://google/%s?cloudSqlInstance=%s&socketFactory=com.google.cloud.sql.mysql.SocketFactory";
 
     public interface JdbcToAvroPipelineOption extends PipelineOptions {
 
@@ -27,17 +22,21 @@ public class JdbcToAvro {
         ValueProvider<String> getDriverClass();
         void setDriverClass(ValueProvider<String> fieldKey);
 
-        @Description("Connection endpoint, format: {projectID}:{zone}:{instanceID}.{database}")
-        ValueProvider<String> getConnectionString();
-        void setConnectionString(ValueProvider<String> connectionString);
+        @Description("Database connection URL")
+        ValueProvider<String> getUrl();
+        void setUrl(ValueProvider<String> url);
 
-        @Description("Database user to access")
+        @Description("Database username to access")
         ValueProvider<String> getUsername();
         void setUsername(ValueProvider<String> username);
 
         @Description("Database access user's password")
         ValueProvider<String> getPassword();
         void setPassword(ValueProvider<String> password);
+
+        @Description("CyptoKeyName to decrypt password by Cloud KMS")
+        ValueProvider<String> getCryptoKeyName();
+        void setCryptoKeyName(ValueProvider<String> getCryptoKeyName);
 
         @Description("Struct field key to separate output path")
         ValueProvider<String> getFieldKey();
@@ -55,17 +54,13 @@ public class JdbcToAvro {
         JdbcToAvroPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(JdbcToAvroPipelineOption.class);
 
         Pipeline pipeline = Pipeline.create(options);
-
-        pipeline.apply("Query", JdbcIO.<Struct>read()
-                    .withQuery(options.getQuery())
-                    .withDataSourceConfiguration(JdbcIO.DataSourceConfiguration
-                            .create(options.getDriverClass(), ValueProvider.NestedValueProvider.of(
-                                    options.getConnectionString(),
-                                    s -> String.format(JDBC_URL_TMPL, s.split("\\.")[1], s.split("\\.")[0])))
-                            .withUsername(options.getUsername())
-                            .withPassword(options.getPassword()))
-                    .withRowMapper(resultSet -> ResultsetToStructConverter.convert(resultSet))
-                    .withCoder(SerializableCoder.of(Struct.class)))
+        pipeline.apply("Query", JdbcSimpleIO.read(
+                    options.getDriverClass(),
+                    options.getUrl(),
+                    options.getUsername(),
+                    options.getPassword(),
+                    options.getQuery(),
+                    options.getCryptoKeyName()))
                 .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey(), options.getUseSnappy()));
 
         pipeline.run();
