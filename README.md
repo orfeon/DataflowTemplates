@@ -182,13 +182,18 @@ Spanner destination table must be created.
 
 JdbcToAvro can read data from Jdbc using free SQL and save it in Avro format.
 
-| Parameter       | Type   | Description                                      |
-|-----------------|--------|--------------------------------------------------|
-| query           | String | SQL query to read record from Database           |
-| driverClass     | String | `com.mysql.cj.jdbc.Driver` or `org.postgresql.Driver`.|
-| connectionString| String | DB url, `{projectID}:{region}:{instanceID}.{databaseName}`.|
-| username        | String | Database username to access. |
-| password        | String | Database access user's password. |
-| output          | String | GCS path to output. prefix must start with gs:// |
+| Parameter   | Type   | Description                                      |
+|-------------|--------|--------------------------------------------------|
+| query       | String | SQL query to read record from Database           |
+| driverClass | String | `com.mysql.cj.jdbc.Driver` or `org.postgresql.Driver`.|
+| url         | String | DB connection url.|
+| username    | String | Database username to access. |
+| password    | String | Database access user's password. |
+| output      | String | GCS path to output. prefix must start with gs:// |
+| cyptoKeyName| String | (Optional)Cloud KMS cyptoKeyName to decrypt password |
 
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
+* `url` format example (Cloud SQL): jdbc:mysql://google/{database}?cloudSqlInstance={project}:{region}:{instance}&socketFactory=com.google.cloud.sql.mysql.SocketFactory
+* cyptoKeyName format: projects/{project}/locations/{location}/keyRings/{keyRings}/cryptoKeys/{cryptoKey}
+* When use cyptoKeyName, encrypt password and apply base64.
 * SQL data type will be converted as [this code](src/main/java/net/orfeon/cloud/dataflow/spanner/StructUtil.java#L107)
