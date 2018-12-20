@@ -6,6 +6,7 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.ValueBinder;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -28,22 +29,32 @@ public class ResultsetToStructConverter {
                     builder = binder.to(resultSet.getString(column));
                     break;
                 case Types.NUMERIC:
-                    builder = binder.to(resultSet.getBigDecimal(column).doubleValue());
+                    BigDecimal bigDecimal = resultSet.getBigDecimal(column);
+                    if(bigDecimal == null) {
+                        builder = binder.to((Double) null);
+                        break;
+                    }
+                    builder = binder.to(bigDecimal.doubleValue());
                     break;
                 case Types.DECIMAL:
-                    builder = binder.to(resultSet.getBigDecimal(column).doubleValue());
+                    BigDecimal decimal = resultSet.getBigDecimal(column);
+                    if(decimal == null) {
+                        builder = binder.to((Double) null);
+                        break;
+                    }
+                    builder = binder.to(decimal.doubleValue());
                     break;
                 case Types.INTEGER:
                     builder = binder.to(resultSet.getInt(column));
                     break;
                 case Types.SMALLINT:
-                    builder = binder.to(resultSet.getShort(column));
+                    builder = binder.to(resultSet.getInt(column));
                     break;
                 case Types.FLOAT:
-                    builder = binder.to(resultSet.getFloat(column));
+                    builder = binder.to(resultSet.getDouble(column));
                     break;
                 case Types.REAL:
-                    builder = binder.to(resultSet.getFloat(column));
+                    builder = binder.to(resultSet.getDouble(column));
                     break;
                 case Types.DOUBLE:
                     builder = binder.to(resultSet.getDouble(column));
@@ -57,16 +68,30 @@ public class ResultsetToStructConverter {
                 case Types.DATALINK:
                     break;
                 case Types.DATE:
-                    final LocalDate localDate = resultSet.getDate(column).toLocalDate();
+                    final java.sql.Date sqlDate = resultSet.getDate(column);
+                    if(sqlDate == null) {
+                        builder = binder.to((Date) null);
+                        break;
+                    }
+                    final LocalDate localDate = sqlDate.toLocalDate();
                     final Date date = Date.fromYearMonthDay(localDate.getYear(), localDate.getMonthValue(), localDate.getDayOfMonth());
                     builder = binder.to(date);
                     break;
                 case Types.TIME:
                     final Time time = resultSet.getTime(column);
+                    if(time == null) {
+                        builder = binder.to((String) null);
+                        break;
+                    }
                     builder = binder.to(time.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
                     break;
                 case Types.TIMESTAMP:
-                    builder = binder.to(Timestamp.of(resultSet.getTimestamp(column)));
+                    final java.sql.Timestamp timestamp = resultSet.getTimestamp(column);
+                    if(timestamp == null) {
+                        builder = binder.to((Timestamp) null);
+                        break;
+                    }
+                    builder = binder.to(Timestamp.of(timestamp));
                     break;
                 case Types.JAVA_OBJECT:
                     break;
@@ -90,34 +115,63 @@ public class ResultsetToStructConverter {
                     break;
                 case Types.TIME_WITH_TIMEZONE:
                     final Time timeWT = resultSet.getTime(column);
+                    if(timeWT == null) {
+                        builder = binder.to((String) null);
+                        break;
+                    }
                     builder = binder.to(timeWT.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
                     break;
                 case Types.TIMESTAMP_WITH_TIMEZONE:
-                    builder = binder.to(Timestamp.of(resultSet.getTimestamp(column)));
+                    final java.sql.Timestamp timestampWT = resultSet.getTimestamp(column);
+                    if(timestampWT == null) {
+                        builder = binder.to((Timestamp) null);
+                        break;
+                    }
+                    builder = binder.to(Timestamp.of(timestampWT));
                     break;
                 case Types.LONGVARCHAR:
                     builder = binder.to(resultSet.getString(column));
                     break;
                 case Types.BINARY:
-                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    byte[] binary = resultSet.getBytes(column);
+                    if(binary == null) {
+                        builder = binder.to((ByteArray) null);
+                        break;
+                    }
+                    builder = binder.to(ByteArray.copyFrom(binary));
                     break;
                 case Types.VARBINARY:
-                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    byte[] varbinary = resultSet.getBytes(column);
+                    if(varbinary == null) {
+                        builder = binder.to((ByteArray) null);
+                        break;
+                    }
+                    builder = binder.to(ByteArray.copyFrom(varbinary));
                     break;
                 case Types.LONGVARBINARY:
-                    builder = binder.to(ByteArray.copyFrom(resultSet.getBytes(column)));
+                    byte[] longvarbinary = resultSet.getBytes(column);
+                    if(longvarbinary == null) {
+                        builder = binder.to((ByteArray) null);
+                        break;
+                    }
+                    builder = binder.to(ByteArray.copyFrom(longvarbinary));
                     break;
                 case Types.BIGINT:
                     builder = binder.to(resultSet.getLong(column));
                     break;
                 case Types.TINYINT:
-                    builder = binder.to(resultSet.getByte(column));
+                    builder = binder.to(resultSet.getInt(column));
                     break;
                 case Types.BIT:
                     builder = binder.to(resultSet.getBoolean(column));
                     break;
                 case Types.ROWID:
-                    builder = binder.to(resultSet.getRowId(column).toString());
+                    RowId rowId = resultSet.getRowId(column);
+                    if(rowId == null) {
+                        builder = binder.to((String) null);
+                        break;
+                    }
+                    builder = binder.to(rowId.toString());
                     break;
                 case Types.NVARCHAR:
                     builder = binder.to(resultSet.getNString(column));
