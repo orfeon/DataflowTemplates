@@ -20,6 +20,9 @@ steps:
 - name: 'gcr.io/cloud-builders/mvn'
   args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.BigQueryToSpanner","-Pdataflow-runner",
          "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/BigQueryToSpanner' '--runner=DataflowRunner'"]
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ["compile", "-f", "pom.xml", "exec:java","-Dexec.mainClass=net.orfeon.cloud.dataflow.templates.JdbcToAvro","-Pdataflow-runner",
+         "-Dexec.args='--project=$PROJECT_ID' '--stagingLocation=gs://$PROJECT_ID-templates/staging' '--templateLocation=gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/JdbcToAvro' '--runner=DataflowRunner'"]
 
 - name: 'gcr.io/cloud-builders/gsutil'
   args: ["cp", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}/*", "gs://$PROJECT_ID-templates/${_VERSION_MAJOR}.${_VERSION_MINOR}/"]
