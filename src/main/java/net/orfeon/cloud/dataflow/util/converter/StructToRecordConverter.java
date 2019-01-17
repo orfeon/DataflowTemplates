@@ -17,6 +17,7 @@ import org.joda.time.MutableDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class StructToRecordConverter {
@@ -144,7 +145,7 @@ public class StructToRecordConverter {
                 builder.set(field, struct.getString(field.name()));
                 break;
             case BYTES:
-                builder.set(field, struct.getBytes(field.name()));
+                builder.set(field, struct.getBytes(field.name()).asReadOnlyByteBuffer());
                 break;
             case ENUM:
                 builder.set(field, struct.getString(field.name()));
@@ -222,7 +223,10 @@ public class StructToRecordConverter {
                 builder.set(field, struct.getStringList(field.name()));
                 break;
             case BYTES:
-                builder.set(field, struct.getBytesList(field.name()));
+                builder.set(field, struct.getBytesList(field.name())
+                        .stream()
+                        .map(b -> b.asReadOnlyByteBuffer())
+                        .collect(Collectors.toList()));
                 break;
             case ENUM:
                 builder.set(field, struct.getStringList(field.name()));

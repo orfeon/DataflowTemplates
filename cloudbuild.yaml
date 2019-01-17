@@ -34,5 +34,5 @@ steps:
 substitutions:
   _VERSION_MAJOR: "0"
   _VERSION_MINOR: "1"
-  _VERSION_PATCH: "1"
+  _VERSION_PATCH: "2"
 

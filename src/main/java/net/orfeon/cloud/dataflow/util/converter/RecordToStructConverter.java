@@ -9,9 +9,11 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.io.gcp.bigquery.SchemaAndRecord;
 
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class RecordToStructConverter {
 
@@ -38,7 +40,7 @@ public class RecordToStructConverter {
             case STRING:
                 return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case BYTES:
-                return builder.set(field.name()).to((ByteArray) record.get(field.name()));
+                return builder.set(field.name()).to(isNullField ? null : ByteArray.copyFrom((ByteBuffer)record.get(field.name())));
             case ENUM:
                 return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case INT:
@@ -115,7 +117,10 @@ public class RecordToStructConverter {
                 }
                 return builder.set(field.name()).toStringArray(stringList);
             case BYTES:
-                return builder.set(field.name()).toBytesArray((List<ByteArray>) record.get(field.name()));
+                return builder.set(field.name()).toBytesArray(((List<ByteBuffer>)record.get(field.name()))
+                        .stream()
+                        .map(ByteArray::copyFrom)
+                        .collect(Collectors.toList()));
             case ENUM:
                 return builder.set(field.name()).toStringArray((List<String>) record.get(field.name()));
             case INT:
