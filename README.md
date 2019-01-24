@@ -13,6 +13,7 @@ This templates target use cases that official templates do not cover.
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
+* [Spanner to BigQueryML to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/ml/bigquery/SpannerToBQMLToSpanner.java)
 
 ## Getting Started
 
@@ -197,3 +198,34 @@ JdbcToAvro can read data from Jdbc using free SQL and save it in Avro format.
 * cyptoKeyName format: projects/{project}/locations/{location}/keyRings/{keyRings}/cryptoKeys/{cryptoKey}
 * When use cyptoKeyName, encrypt password and apply base64.
 * SQL data type will be converted as [this code](src/main/java/net/orfeon/cloud/dataflow/spanner/StructUtil.java#L107)
+
+
+### SpannerToBQMLToSpanner
+
+SpannerToBQMLToSpanner can apply BigQueryML prediction to Spanner query result records.
+You have to create spanner table that store prediction results before run this template.
+Prediction results table schema has only two columns, {recordKey} and score.
+{recordKey} is unique key field name in your spanner query results.
+score is prediction result. Data type must be FLOAT64.
+In Linear regression, score represents target value prediction.
+In Logistic regression, score represents probability the label later one(order by label name) will occur.
+
+| Parameter       | Type   | Description                                        |
+|-----------------|--------|----------------------------------------------------|
+| model           | String | BigQuery ML model. Format: {dataset}.{model_name}  |
+| modelType       | String | BigQuery ML model type. `linear_reg` or `logistic_reg` |
+| keyFieldName    | String | Unique key field name in spanner query result records. |
+| inputProjectId  | String | projectID for Spanner you will read.               |
+| inputInstanceId | String | Spanner instanceID you will read.                  |
+| inputDatabaseId | String | Spanner databaseID you will read.                  |
+| query           | String | SQL query to read record from Spanner              |
+| outputProjectId | String | projectID for Spanner you will write query result. |
+| outputInstanceId| String | Spanner instanceID you will write prediction result. |
+| outputDatabaseId| String | Spanner databaseID you will write prediction result. |
+| table           | String | Spanner table name you will write prediction result. |
+| mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+| outputError     | String | GCS path to output error record as avro files.     |
+| timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
+* In Logistic regression, when labels contains `A` and `B`, score represents probability B occur.
