@@ -9,6 +9,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.io.gcp.bigquery.SchemaAndRecord;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,13 +36,19 @@ public class RecordToStructConverter {
     }
 
     private static Struct.Builder setFieldValue(Struct.Builder builder, Schema.Field field, Schema type, GenericRecord record) {
-        //ValueBinder<Struct.Builder> binder = builder.set(field.name());
         final boolean isNullField = record.get(field.name()) == null;
         switch (type.getType()) {
             case STRING:
                 return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case BYTES:
-                return builder.set(field.name()).to(isNullField ? null : ByteArray.copyFrom((ByteBuffer)record.get(field.name())));
+                final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scale = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                final ByteBuffer bytes = (ByteBuffer)record.get(field.name());
+                if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
+                    final String strValue = convertNumericBytesToString(bytes.array(), scale);
+                    return builder.set(field.name()).to(isNullField ? null : strValue);
+                }
+                return builder.set(field.name()).to(isNullField ? null : ByteArray.copyFrom(bytes));
             case ENUM:
                 return builder.set(field.name()).to(isNullField ? null : record.get(field.name()).toString());
             case INT:
@@ -105,7 +113,6 @@ public class RecordToStructConverter {
     }
 
     private static Struct.Builder setArrayFieldValue(Struct.Builder builder, Schema.Field field, Schema type, GenericRecord record) {
-        //final ValueBinder<Struct.Builder> binder = builder.set(field.name());
         switch (type.getType()) {
             case STRING:
                 if(record.get(field.name()) == null) {
@@ -117,6 +124,14 @@ public class RecordToStructConverter {
                 }
                 return builder.set(field.name()).toStringArray(stringList);
             case BYTES:
+                final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scale = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
+                    return builder.set(field.name()).toStringArray(((List<ByteBuffer>)record.get(field.name()))
+                            .stream()
+                            .map(bytes -> convertNumericBytesToString(bytes.array(), scale))
+                            .collect(Collectors.toList()));
+                }
                 return builder.set(field.name()).toBytesArray(((List<ByteBuffer>)record.get(field.name()))
                         .stream()
                         .map(ByteArray::copyFrom)
@@ -207,5 +222,20 @@ public class RecordToStructConverter {
             default:
                 return builder;
         }
+    }
+
+    private static String convertNumericBytesToString(byte[] bytes, int scale) {
+        BigDecimal bigDecimal = BigDecimal.valueOf(new BigInteger(bytes).longValue(), scale);
+        if(scale == 0) {
+            return bigDecimal.toPlainString();
+        }
+        StringBuilder sb = new StringBuilder(bigDecimal.toPlainString());
+        while(sb.lastIndexOf("0") == sb.length() - 1) {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        if(sb.lastIndexOf(".") == sb.length() - 1) {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        return sb.toString();
     }
 }

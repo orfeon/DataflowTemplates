@@ -176,7 +176,7 @@ Spanner destination table must be created.
 | outputError     | String | GCS path to output error record as avro files.     |
 
 * Spanner output table must be created until start template.
-* Some BigQuery schema type will be converted to STRING (ex: DATE -> STRING) by BigQuery.
+* Some BigQuery schema type will be converted to STRING (ex: NUMERIC, DATE -> STRING) by BigQuery.
 
 
 ### JdbcToAvro

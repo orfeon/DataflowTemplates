@@ -1,5 +1,6 @@
 package net.orfeon.cloud.dataflow.util;
 
+import com.google.cloud.ByteArray;
 import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
@@ -28,6 +29,7 @@ public class DummyDataSupplier {
                 .set("cdf").to(date1)
                 .set("ctf").to(timestamp1)
                 .set("csf").to("This is a pen")
+                .set("cnf").to(ByteArray.copyFrom(new byte[]{0,0,0,0,0,0,0,0,0,0,0,0,5,-11,-31,0})) // 0.1
                 .build();
 
         return struct1;
@@ -45,6 +47,7 @@ public class DummyDataSupplier {
         Type.StructField f4 = Type.StructField.of("cdf", Type.date());
         Type.StructField f5 = Type.StructField.of("ctf", Type.timestamp());
         Type.StructField f6 = Type.StructField.of("csf", Type.string());
+        Type.StructField f7 = Type.StructField.of("cnf", Type.bytes());
 
         Struct struct1 = createSimpleStruct();
 
@@ -60,7 +63,7 @@ public class DummyDataSupplier {
                 .set("dnf").to((Date)null)
                 .set("tnf").to((Timestamp)null)
                 .set("rf").to(struct1)
-                .set("arf").toStructArray(Type.struct(f1,f2, f3, f4, f5, f6), Arrays.asList(struct1))
+                .set("arf").toStructArray(Type.struct(f1,f2, f3, f4, f5, f6, f7), Arrays.asList(struct1))
                 .set("asf").toStringArray(Arrays.asList("a", "b", "c"))
                 .set("aif").toInt64Array(Arrays.asList(1L, 2L, 3L))
                 .set("adf").toDateArray(Arrays.asList(struct1.getDate("cdf"), date2))
