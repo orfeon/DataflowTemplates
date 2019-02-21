@@ -179,6 +179,23 @@ Spanner destination table must be created.
 * Some BigQuery schema type will be converted to STRING (ex: NUMERIC, DATE -> STRING) by BigQuery.
 
 
+### BigQueryToDatastore
+
+BigQueryToDatastore enables you to query from BigQuery and write results to specified Cloud Datastore kind using template.
+Template parameters are same as BigQueryToSpanner.
+Spanner destination table must be created.
+
+| Parameter   | Type   | Description                                          |
+|-------------|--------|------------------------------------------------------|
+| query       | String | SQL query to read record from BigQuery               |
+| projectId   | String | projectID for Datastore you will write query result. |
+| kind        | String | Cloud Datastore target kind name to store.           |
+| keyField    | String | Unique field name in query results from BigQuery.    |
+
+* Spanner output table must be created until start template.
+* Some BigQuery schema type will be converted to STRING (ex: NUMERIC, DATE -> STRING) by BigQuery.
+
+
 ### JdbcToAvro
 
 JdbcToAvro can read data from Jdbc using free SQL and save it in Avro format.
