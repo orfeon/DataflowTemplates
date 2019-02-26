@@ -241,9 +241,9 @@ public class RecordToTableRowConverter {
             case DOUBLE:
                 return value == null ? null : (Double)value;
             case BOOLEAN:
-                return value == null ? null : (Double)value;
+                return value == null ? null : (Boolean)value;
             case BYTES:
-                return value == null ? null : (ByteBuffer)(value);
+                return value == null ? null : (ByteBuffer)value;
             default:
                 return value;
         }
