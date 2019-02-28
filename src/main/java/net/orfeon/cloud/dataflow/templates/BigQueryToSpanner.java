@@ -70,6 +70,7 @@ public class BigQueryToSpanner {
                 .apply("QueryBigQuery", BigQueryIO.read(RecordToStructConverter::convert)
                         .fromQuery(options.getQuery())
                         .usingStandardSql()
+                        .withQueryPriority(BigQueryIO.TypedRead.QueryPriority.INTERACTIVE)
                         .withTemplateCompatibility()
                         .withCoder(AvroCoder.of(Struct.class))
                         .withoutValidation())
@@ -81,7 +82,9 @@ public class BigQueryToSpanner {
                         .withDatabaseId(options.getDatabaseId()));
 
         result.getFailedMutations()
-                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(MutationToStructConverter::convert))
+                .apply("ErrorMutationToStruct", FlatMapElements
+                        .into(TypeDescriptor.of(Struct.class))
+                        .via(r -> MutationToStructConverter.convert(r)))
                 .apply("StoreErrorStorage", new StructToAvroTransform(options.getOutputError(), options.getFieldKey(), options.getUseSnappy()));
 
         pipeline.run();
