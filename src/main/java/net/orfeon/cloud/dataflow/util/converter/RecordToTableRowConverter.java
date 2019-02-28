@@ -59,6 +59,7 @@ public class RecordToTableRowConverter {
                 final Long intvalue = new Long((Integer)record.get(field.name()));
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
                     final LocalDate ld = LocalDate.ofEpochDay(intvalue);
+                    //final Date date = Date.fromYearMonthDay(ld.getYear() <= 1 ? 1 : ld.getYear() >= 24356 ? 24356 : ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                     final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                     return row.set(field.name(), date);
                 }
@@ -140,7 +141,7 @@ public class RecordToTableRowConverter {
                 return row.set(field.name(), isNull ? null : ((List<ByteBuffer>)record.get(field.name()))
                         .stream()
                         .map(ByteBuffer::array)
-                        //.map(ByteString::copyFrom)
+                        .map(ByteBuffer::wrap)
                         .collect(Collectors.toList()));
             case INT:
                 final List<Integer> intvalues =  ((List<Integer>) record.get(field.name()));
@@ -156,7 +157,7 @@ public class RecordToTableRowConverter {
                     }
                     return row.set(field.name(), isNull ? null : dateList);
                 } else {
-                    return row.set(field.name(), intvalues);
+                    return row.set(field.name(), intvalues.stream().map(i -> i.longValue()).collect(Collectors.toList()));
                 }
             case LONG:
                 final List<Long> longvalues = (List<Long>)record.get(field.name());
@@ -176,7 +177,6 @@ public class RecordToTableRowConverter {
                 }
             case FLOAT:
             case DOUBLE:
-                return row.set(field.name(), record.get(field.name()));
             case BOOLEAN:
                 return row.set(field.name(), record.get(field.name()));
             case FIXED:
