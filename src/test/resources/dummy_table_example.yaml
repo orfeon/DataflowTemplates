@@ -1,0 +1,14 @@
+tables:
+  - name: dummy
+    randomRate: 0
+    fields:
+      - name: int
+        range: [1,10]
+      - name: float
+        range: [-100.0,100.0]
+      - name: date
+        range: [2014-01-01,2018-01-01]
+      - name: timestamp
+        range: [2018-01-01T00:00:00,2019-01-01T00:00:00]
+      - name: arr
+        range: [1, 4]
