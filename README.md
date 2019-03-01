@@ -13,6 +13,7 @@ This templates target use cases that official templates do not cover.
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
+* [Dummy to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/DummyToSpanner.java)
 * [Spanner to BigQueryML to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/ml/bigquery/SpannerToBQMLToSpanner.java)
 
 ## Getting Started
@@ -215,6 +216,41 @@ JdbcToAvro can read data from Jdbc using free SQL and save it in Avro format.
 * cyptoKeyName format: projects/{project}/locations/{location}/keyRings/{keyRings}/cryptoKeys/{cryptoKey}
 * When use cyptoKeyName, encrypt password and apply base64.
 * SQL data type will be converted as [this code](src/main/java/net/orfeon/cloud/dataflow/spanner/StructUtil.java#L107)
+
+
+### DummyToSpanner
+
+DummyToSpanner insert dummy records to specified Spanner table.
+
+| Parameter   | Type   | Description                                      |
+|-------------|--------|--------------------------------------------------|
+| projectId   | String | Spanner projectID.  |
+| instanceId  | String | Spanner instanceID. |
+| databaseId  | String | Spanner databaseID. |
+| tables      | String | Spanner table names and count you want to insert dummy records. format: tableName1:1000,tableName2:20000   |
+| config      | String | (Optional) Config yaml file. GCS path or yaml text itself.  |
+| parallelNum | Integer | (Optional) Worker parallel num to generate dummy records.  |
+
+* You can specify range of random values each fields.
+* The format of the config yaml file format is as follows.
+
+```yaml
+tables:
+  - name: dummyTable1
+    randomRate: 0
+    fields:
+      - name: intField
+        range: [1,10]
+      - name: floatField
+        range: [-100.0,100.0]
+      - name: dateField
+        range: [2014-01-01,2018-01-01]
+      - name: timestampField
+        range: [2018-01-01T00:00:00,2019-01-01T00:00:00]
+```
+
+* `randomRate` describes null value rate for `NULLABLE` field.
+* `range` describes minimum and maximum value for the field.
 
 
 ### SpannerToBQMLToSpanner
