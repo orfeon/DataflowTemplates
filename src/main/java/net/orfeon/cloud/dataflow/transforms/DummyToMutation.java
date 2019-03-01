@@ -18,6 +18,8 @@ import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.values.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 import org.yaml.snakeyaml.Yaml;
 
@@ -33,6 +35,8 @@ import java.util.stream.Collectors;
 
 
 public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DummyToMutation.class);
 
     private static final int RANDOM_NULL_RATE = 20; // 0 to 100
 
@@ -241,7 +245,7 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
         @Setup
         public void setup() throws IOException {
             final String yamlString = readConfig(this.configVP.get());
-            this.config = Config.of(yamlString);
+            this.config = yamlString == null ? Config.ofDefault() : Config.of(yamlString);
         }
 
         @ProcessElement
@@ -266,6 +270,9 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
         }
 
         private String readConfig(String source) throws IOException {
+            if(source == null) {
+                return null;
+            }
             if(!source.startsWith("gs://")) {
                 return source;
             }
@@ -276,6 +283,8 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
                  final InputStream is = Channels.newInputStream(readChannel)) {
 
                 return CharStreams.toString(new InputStreamReader(is));
+            } catch (NullPointerException e) { // throwsn NullPo when source not found.
+                throw new IllegalArgumentException(String.format("Config path [%s] is not found", source));
             }
         }
 
@@ -327,6 +336,12 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
         public static Config of(String yamlString) {
             final Yaml yaml = new Yaml();
             return yaml.loadAs(yamlString, Config.class);
+        }
+
+        public static Config ofDefault() {
+            Config config = new Config();
+            config.tables = new ArrayList<>();
+            return config;
         }
 
     }

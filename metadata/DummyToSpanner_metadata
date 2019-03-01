@@ -25,7 +25,8 @@
   {
     "name": "config",
     "label": "Config yaml file. GCS path or yaml text itself.",
-    "help_text": "Config yaml file. GCS path or yaml text itself."
+    "help_text": "Config yaml file. GCS path or yaml text itself.",
+    "is_optional": true
   },
   {
     "name": "parallelNum",
