@@ -4,7 +4,6 @@ import com.google.cloud.spanner.Key;
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
-import com.google.spanner.v1.KeySet;
 
 public class StructToMutationConverter {
 
@@ -40,7 +39,9 @@ public class StructToMutationConverter {
                     builder = builder.set(field.getName()).to(isNullField ? null : struct.getTimestamp(fieldName));
                     break;
                 case STRUCT:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getStruct(fieldName));
+                    // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2019/03/04)
+                    // https://cloud.google.com/spanner/docs/data-types
+                    //builder = builder.set(field.getName()).to(isNullField ? null : struct.getStruct(fieldName));
                     break;
                 case ARRAY:
                     switch (field.getType().getArrayElementType().getCode()) {
@@ -66,11 +67,11 @@ public class StructToMutationConverter {
                             builder = builder.set(field.getName()).toTimestampArray(isNullField ? null : struct.getTimestampList(fieldName));
                             break;
                         case STRUCT:
-                            // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2018/10/26)
+                            // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2019/03/04)
                             //builder = binder.toStructArray(isNullField ? null : struct.getStructList(fieldName));
                             break;
                         case ARRAY:
-                            // NOT SUPPOERTED TO STORE ARRAY IN ARRAY FIELD! (2018/10/26)
+                            // NOT SUPPOERTED TO STORE ARRAY IN ARRAY FIELD! (2019/03/04)
                             break;
                     }
 
