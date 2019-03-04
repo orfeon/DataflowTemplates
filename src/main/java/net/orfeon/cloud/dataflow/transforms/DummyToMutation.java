@@ -454,7 +454,6 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
             if(!isPrimary && DummyGenerator.randomNull(this.isNullable, this.randomRate)) {
                 return null;
             }
-            LOG.info("rangesize: %d, ", range.size());
             String randomString = range != null && range.size() > 0 ? range.get(random.nextInt(range.size())) : Hashing.sha512().hashLong(value).toString();
             LOG.info(randomString);
             randomString = this.isPrimary ? Long.toString(value) : randomString;
