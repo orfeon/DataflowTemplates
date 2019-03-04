@@ -3,10 +3,7 @@ package net.orfeon.cloud.dataflow.transforms;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.spanner.*;
 import com.google.cloud.spanner.Partition;
-import com.google.common.collect.Iterables;
 import org.apache.beam.sdk.coders.*;
-import org.apache.beam.sdk.io.gcp.spanner.MutationGroup;
-import org.apache.beam.sdk.io.gcp.spanner.SpannerWriteResult;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.*;
@@ -14,9 +11,6 @@ import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
-
-import static com.google.cloud.spanner.SpannerOptions.getDefaultInstance;
-
 import java.util.*;
 
 
@@ -24,8 +18,12 @@ public class SpannerQueryIO {
 
     private static final String SQL_SPLITTER = "--SPLITTER--";
 
-    public static Read read(ValueProvider<String> projectId, ValueProvider<String> instanceId, ValueProvider<String> databaseId,
-                            ValueProvider<String> query, ValueProvider<String> timestampBound) {
+    public static Read read(ValueProvider<String> projectId,
+                            ValueProvider<String> instanceId,
+                            ValueProvider<String> databaseId,
+                            ValueProvider<String> query,
+                            ValueProvider<String> timestampBound) {
+
         return new Read(projectId, instanceId, databaseId, query, timestampBound);
     }
 
