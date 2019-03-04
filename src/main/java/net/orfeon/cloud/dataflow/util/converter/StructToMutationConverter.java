@@ -1,8 +1,10 @@
 package net.orfeon.cloud.dataflow.util.converter;
 
+import com.google.cloud.spanner.Key;
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
+import com.google.spanner.v1.KeySet;
 
 public class StructToMutationConverter {
 
@@ -77,6 +79,43 @@ public class StructToMutationConverter {
         return builder.build();
     }
 
+    public static Mutation delete(final Struct struct, final String table, final String keyFields) {
+        Key.Builder builder = Key.newBuilder();
+        for(final String keyField : keyFields.split(",")) {
+            if(struct.isNull(keyField)) {
+                throw new IllegalArgumentException(String.format("KeyField: %s must not be null!", keyField));
+            }
+            switch(struct.getColumnType(keyField).getCode()) {
+                case STRING:
+                    builder = builder.append(struct.getString(keyField));
+                    break;
+                case BYTES:
+                    builder = builder.append(struct.getBytes(keyField));
+                    break;
+                case BOOL:
+                    builder = builder.append(struct.getBoolean(keyField));
+                    break;
+                case INT64:
+                    builder = builder.append(struct.getLong(keyField));
+                    break;
+                case FLOAT64:
+                    builder = builder.append(struct.getDouble(keyField));
+                    break;
+                case DATE:
+                    builder = builder.append(struct.getDate(keyField));
+                    break;
+                case TIMESTAMP:
+                    builder = builder.append(struct.getTimestamp(keyField));
+                    break;
+                default:
+                    throw new IllegalArgumentException(String.format(
+                            "field: %s, fieldType: %s at table %s, is impossible as Key.",
+                            keyField, struct.getColumnType(keyField).toString(), table));
+            }
+        }
+        return Mutation.delete(table, builder.build());
+    }
+
     private static Mutation.WriteBuilder createMutationWriteBuilder(final String table, final Mutation.Op mutationOp) {
         switch(mutationOp) {
             case INSERT:
@@ -87,6 +126,8 @@ public class StructToMutationConverter {
                 return Mutation.newInsertOrUpdateBuilder(table);
             case REPLACE:
                 return Mutation.newReplaceBuilder(table);
+            case DELETE:
+                throw new IllegalArgumentException("MutationOP(for insert) must not be DELETE!");
             default:
                 return Mutation.newInsertOrUpdateBuilder(table);
         }

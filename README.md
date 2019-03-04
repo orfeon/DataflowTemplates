@@ -10,6 +10,7 @@ This templates target use cases that official templates do not cover.
 * [Spanner to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToAvro.java)
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
+* [Spanner Bulk Delete](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpannerDelete.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
@@ -140,6 +141,23 @@ Spanner destination table must be created.
 | table           | String | Spanner table name you will write query result.    |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
+| timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
+
+* Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
+
+
+### SpannerToSpannerDelete
+
+SpannerToSpannerDelete delete records from table that matched query results user specified.
+
+| Parameter       | Type   | Description                                      |
+|-----------------|--------|--------------------------------------------------|
+| projectId       | String | projectID for Spanner you will read.             |
+| instanceId      | String | Spanner instanceID you will read.                |
+| databaseId      | String | Spanner databaseID you will read.                |
+| query           | String | SQL query to read record from Spanner            |
+| table           | String | Spanner table name to delete records             |
+| keyFields       | String | Key fields in query results. If composite key case, set comma-separated fields in key sequence. |
 | timestampBound  | String | (Optional) timestamp bound (format: yyyy-MM-ddTHH:mm:SSZ). default is strong.   |
 
 * Query will be split and executed in parallel if the delimiter string `--SPLITTER--` present.
