@@ -1,7 +1,7 @@
 package net.orfeon.cloud.dataflow.templates;
 
 import com.google.api.services.bigquery.model.TableRow;
-import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.SpannerQueryIO;
 import net.orfeon.cloud.dataflow.util.converter.StructToTableRowConverter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -42,9 +42,14 @@ public class SpannerToBigQuery {
     public static void main(String[] args) {
 
         SpannerToBigQueryPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(SpannerToBigQueryPipelineOption.class);
-
         Pipeline pipeline = Pipeline.create(options);
-        pipeline.apply("QuerySpanner", SpannerSimpleIO.read(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound()))
+
+        pipeline.apply("QuerySpanner", SpannerQueryIO.read(
+                        options.getProjectId(),
+                        options.getInstanceId(),
+                        options.getDatabaseId(),
+                        options.getQuery(),
+                        options.getTimestampBound()))
                 .apply("ConvertTableRow", MapElements.into(TypeDescriptor.of(TableRow.class)).via(StructToTableRowConverter::convert))
                 .apply("StoreBigQuery", BigQueryIO.writeTableRows()
                         .to(options.getOutput())

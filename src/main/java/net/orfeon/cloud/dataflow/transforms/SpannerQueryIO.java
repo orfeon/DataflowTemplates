@@ -20,7 +20,7 @@ import static com.google.cloud.spanner.SpannerOptions.getDefaultInstance;
 import java.util.*;
 
 
-public class SpannerSimpleIO {
+public class SpannerQueryIO {
 
     private static final String SQL_SPLITTER = "--SPLITTER--";
 

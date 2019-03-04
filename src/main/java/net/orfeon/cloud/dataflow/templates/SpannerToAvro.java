@@ -1,6 +1,6 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.SpannerQueryIO;
 import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.*;
@@ -47,11 +47,19 @@ public class SpannerToAvro {
     public static void main(String[] args) {
 
         SpannerToAvroPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(SpannerToAvroPipelineOption.class);
-
         Pipeline pipeline = Pipeline.create(options);
-        pipeline.apply("QuerySpanner", SpannerSimpleIO.read(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound()))
-                .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey(), options.getUseSnappy()));
 
+        pipeline.apply("QuerySpanner", SpannerQueryIO.read(
+                        options.getProjectId(),
+                        options.getInstanceId(),
+                        options.getDatabaseId(),
+                        options.getQuery(),
+                        options.getTimestampBound()))
+                .apply("StoreGCSAvro", new StructToAvroTransform(
+                        options.getOutput(),
+                        options.getFieldKey(),
+                        options.getUseSnappy()));
+        
         pipeline.run();
     }
 

@@ -1,7 +1,7 @@
 package net.orfeon.cloud.dataflow.templates;
 
 import com.google.cloud.spanner.Struct;
-import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.SpannerQueryIO;
 import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import net.orfeon.cloud.dataflow.dofns.StructToMutationDoFn;
 import net.orfeon.cloud.dataflow.util.converter.MutationToStructConverter;
@@ -77,10 +77,15 @@ public class SpannerToSpanner {
     public static void main(final String[] args) {
 
         final SpannerToSpannerPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(SpannerToSpannerPipelineOption.class);
-
         final Pipeline pipeline = Pipeline.create(options);
+
         final SpannerWriteResult result = pipeline
-                .apply("QuerySpanner", SpannerSimpleIO.read(options.getInputProjectId(), options.getInputInstanceId(), options.getInputDatabaseId(), options.getQuery(), options.getTimestampBound()))
+                .apply("QuerySpanner", SpannerQueryIO.read(
+                        options.getInputProjectId(),
+                        options.getInputInstanceId(),
+                        options.getInputDatabaseId(),
+                        options.getQuery(),
+                        options.getTimestampBound()))
                 .apply("ConvertToMutation", ParDo.of(new StructToMutationDoFn(options.getTable(), options.getMutationOp())))
                 .apply("StoreSpanner", SpannerIO.write()
                         .withFailureMode(SpannerIO.FailureMode.REPORT_FAILURES)
@@ -89,8 +94,13 @@ public class SpannerToSpanner {
                         .withDatabaseId(options.getOutputDatabaseId()));
 
         result.getFailedMutations()
-                .apply("ErrorMutationToStruct", FlatMapElements.into(TypeDescriptor.of(Struct.class)).via(MutationToStructConverter::convert))
-                .apply("StoreErrorStorage", new StructToAvroTransform(options.getOutputError(), options.getFieldKey(), options.getUseSnappy()));
+                .apply("ErrorMutationToStruct", FlatMapElements
+                        .into(TypeDescriptor.of(Struct.class))
+                        .via(MutationToStructConverter::convert))
+                .apply("StoreErrorStorage", new StructToAvroTransform(
+                        options.getOutputError(),
+                        options.getFieldKey(),
+                        options.getUseSnappy()));
 
         pipeline.run();
     }

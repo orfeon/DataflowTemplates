@@ -1,6 +1,6 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.SpannerQueryIO;
 import net.orfeon.cloud.dataflow.dofns.StructToTextDoFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
@@ -43,11 +43,18 @@ public class SpannerToText {
     public static void main(String[] args) {
 
         SpannerToTextPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(SpannerToTextPipelineOption.class);
-
         Pipeline pipeline = Pipeline.create(options);
-        pipeline.apply("QuerySpanner", SpannerSimpleIO.read(options.getProjectId(), options.getInstanceId(), options.getDatabaseId(), options.getQuery(), options.getTimestampBound()))
+
+        pipeline.apply("QuerySpanner", SpannerQueryIO.read(
+                        options.getProjectId(),
+                        options.getInstanceId(),
+                        options.getDatabaseId(),
+                        options.getQuery(),
+                        options.getTimestampBound()))
                 .apply("ConvertLine", ParDo.of(new StructToTextDoFn(options.getType())))
-                .apply("StoreStorage", TextIO.write().to(options.getOutput()).withSuffix(".txt"));
+                .apply("StoreStorage", TextIO.write()
+                        .to(options.getOutput())
+                        .withSuffix(".txt"));
 
         pipeline.run();
     }
