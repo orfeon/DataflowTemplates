@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class RecordAndTableRowTest {
 
@@ -128,7 +129,7 @@ public class RecordAndTableRowTest {
                 assertArrayRecordAndTableRow(type.getElementType(), (List)record.get(field.name()), (List)row.get(field.name()));
                 break;
             case UNION:
-                for(final Schema childSchema : field.schema().getTypes()) {
+                for(final Schema childSchema : type.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
@@ -141,10 +142,11 @@ public class RecordAndTableRowTest {
 
     }
 
-    private void assertArrayRecordAndTableRow(final Schema scheme, final List recordArray, final List rowArray) {
-        if(recordArray == null && rowArray == null) {
+    private void assertArrayRecordAndTableRow(final Schema scheme, final List recordArray_, final List rowArray) {
+        if(recordArray_ == null && rowArray == null) {
             return;
         }
+        final List recordArray = (List)(recordArray_.stream().filter(v -> v != null).collect(Collectors.toList()));
         assert recordArray != null && rowArray != null;
         assert recordArray.size() == rowArray.size();
         final int size = recordArray.size();
@@ -152,24 +154,37 @@ public class RecordAndTableRowTest {
             case ENUM:
             case STRING:
                 for(int i=0; i<size; i++) {
+                    if(recordArray.get(i) == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     assert recordArray.get(i).toString().equals(rowArray.get(i));
                 }
                 break;
             case INT:
                 for(int i=0; i<size; i++) {
-                    final Long intValue = new Long((Integer) recordArray.get(i));
+                    final Integer intValue = (Integer) recordArray.get(i);
+                    if(intValue == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
+                    final Long intLongValue = new Long(intValue);
                     if (LogicalTypes.date().equals(scheme.getLogicalType())) {
-                        final LocalDate ld = LocalDate.ofEpochDay(intValue);
+                        final LocalDate ld = LocalDate.ofEpochDay(intLongValue);
                         final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                         assert date.equals(rowArray.get(i));
                     } else {
-                        assert intValue.equals(rowArray.get(i));
+                        assert intLongValue.equals(rowArray.get(i));
                     }
                 }
                 break;
             case LONG:
                 for(int i=0; i<size; i++) {
                     final Long longValue = (Long) recordArray.get(i);
+                    if(longValue == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     if (LogicalTypes.timestampMillis().equals(scheme.getLogicalType())
                             || LogicalTypes.timestampMicros().equals(scheme.getLogicalType())) {
                         final Long seconds = scheme.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
@@ -183,14 +198,22 @@ public class RecordAndTableRowTest {
             case DOUBLE:
             case BOOLEAN:
                 for(int i=0; i<size; i++) {
+                    if(recordArray.get(i) == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     assert recordArray.get(i).equals(rowArray.get(i));
                 }
                 break;
             case BYTES:
                 for(int i=0; i<size; i++) {
+                    final ByteBuffer bytes = (ByteBuffer) recordArray.get(i);
+                    if(bytes == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     final int precision = scheme.getObjectProp("precision") != null ? Integer.valueOf(scheme.getObjectProp("precision").toString()) : 0;
                     final int scale = scheme.getObjectProp("scale") != null ? Integer.valueOf(scheme.getObjectProp("scale").toString()) : 0;
-                    final ByteBuffer bytes = (ByteBuffer) recordArray.get(i);
                     if (LogicalTypes.decimal(precision, scale).equals(scheme.getLogicalType())) {
                         final BigDecimal bigDecimal = BigDecimal.valueOf(new BigInteger(bytes.array()).longValue(), scale);
                         assert bigDecimal.equals(rowArray.get(i));
@@ -202,6 +225,10 @@ public class RecordAndTableRowTest {
             case MAP:
                 for(int i=0; i<size; i++) {
                     final Map map = (Map) recordArray.get(i);
+                    if(map == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     for (final TableRow childMapRow : (List<TableRow>) rowArray.get(i)) {
                         if (map.get(new Utf8(childMapRow.get("key").toString())) instanceof Utf8) {
                             assert map.get(new Utf8(childMapRow.get("key").toString())).toString().equals(childMapRow.get("value"));
@@ -214,12 +241,20 @@ public class RecordAndTableRowTest {
             case FIXED:
                 for(int i=0; i<size; i++) {
                     final GenericData.Fixed fixed = (GenericData.Fixed) recordArray.get(i);
+                    if(fixed == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     assert fixed.bytes().equals(rowArray.get(i));
                 }
                 break;
             case RECORD:
                 for(int i=0; i<size; i++) {
                     final GenericRecord childRecord = (GenericRecord) recordArray.get(i);
+                    if(childRecord == null) {
+                        assert rowArray.get(i) == null;
+                        continue;
+                    }
                     for(final Schema.Field childField : childRecord.getSchema().getFields()) {
                         assertRecordAndTableRow(childField, childField.schema(), childRecord, (TableRow) rowArray.get(i));
                     }
@@ -228,6 +263,12 @@ public class RecordAndTableRowTest {
             case ARRAY:
                 break;
             case UNION:
+                for(final Schema childSchema : scheme.getTypes()) {
+                    if (Schema.Type.NULL.equals(childSchema.getType())) {
+                        continue;
+                    }
+                    assertArrayRecordAndTableRow(childSchema, recordArray, rowArray);
+                }
                 break;
             default:
                 break;

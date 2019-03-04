@@ -93,7 +93,7 @@ public class RecordToTableRowConverter {
                 }
                 return row.set(field.name(), childMapRows);
             case UNION:
-                for(final Schema childSchema : field.schema().getTypes()) {
+                for(final Schema childSchema : type.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
@@ -101,16 +101,7 @@ public class RecordToTableRowConverter {
                 }
                 return row;
             case ARRAY:
-                if (Schema.Type.UNION.equals(field.schema().getType())) {
-                    for(final Schema childSchema : field.schema().getTypes()) {
-                        if (Schema.Type.NULL.equals(childSchema.getType())) {
-                            continue;
-                        }
-                        return setArrayFieldValue(row, field, childSchema.getElementType(), record);
-                    }
-                } else {
-                    return setArrayFieldValue(row, field, field.schema().getElementType(), record);
-                }
+                return setArrayFieldValue(row, field, type.getElementType(), record);
             case NULL:
                 // BigQuery ignores NULL value
                 // https://cloud.google.com/bigquery/data-formats#avro_format
@@ -127,7 +118,8 @@ public class RecordToTableRowConverter {
             case STRING:
                 return row.set(field.name(), isNull ? null : ((List<Object>)record.get(field.name()))
                         .stream()
-                        .map(s -> s.toString())
+                        .filter(utf8 -> utf8 != null)
+                        .map(utf8 -> utf8.toString())
                         .collect(Collectors.toList()));
             case BYTES:
                 final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
@@ -135,19 +127,18 @@ public class RecordToTableRowConverter {
                 if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
                     return row.set(field.name(), isNull ? null : ((List<ByteBuffer>)record.get(field.name()))
                             .stream()
+                            .filter(bytes -> bytes != null)
                             .map(bytes -> BigDecimal.valueOf(new BigInteger(bytes.array()).longValue(), scale))
                             .collect(Collectors.toList()));
                 }
-                return row.set(field.name(), isNull ? null : ((List<ByteBuffer>)record.get(field.name()))
-                        .stream()
-                        .map(ByteBuffer::array)
-                        .map(ByteBuffer::wrap)
+                return row.set(field.name(), ((List<ByteBuffer>)record.get(field.name())).stream()
+                        .filter(bytes -> bytes != null)
                         .collect(Collectors.toList()));
             case INT:
-                final List<Integer> intvalues =  ((List<Integer>) record.get(field.name()));
+                final List<Integer> intValues =  ((List<Integer>) record.get(field.name()));
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
                     final List<Date> dateList = new ArrayList<>();
-                    for(final Integer days : intvalues) {
+                    for(final Integer days : intValues) {
                         if(days == null) {
                             continue; // skip when null value (BigQuery disallow to set null value in array.)
                         }
@@ -157,43 +148,58 @@ public class RecordToTableRowConverter {
                     }
                     return row.set(field.name(), isNull ? null : dateList);
                 } else {
-                    return row.set(field.name(), intvalues.stream().map(i -> i.longValue()).collect(Collectors.toList()));
+                    return row.set(field.name(), intValues.stream()
+                            .filter(i -> i != null)
+                            .map(i -> i.longValue()).collect(Collectors.toList()));
                 }
             case LONG:
-                final List<Long> longvalues = (List<Long>)record.get(field.name());
+                final List<Long> longValues = (List<Long>)record.get(field.name());
                 if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
                     final List<Long> timestampList = new ArrayList<>();
-                    for(final Long longvalue : longvalues) {
+                    for(final Long longvalue : longValues) {
                         if(longvalue == null) {
                             continue; // skip null value (BigQuery do not support null value in array.)
                         }
                         final Long seconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue / 1000000 : longvalue / 1000;
                         timestampList.add(seconds);
                     }
-                    return row.set(field.name(), timestampList);
+                    return row.set(field.name(), isNull ? null : timestampList);
                 } else {
-                    return row.set(field.name(), longvalues);
+                    return row.set(field.name(), isNull ? null : longValues.stream()
+                            .filter(l -> l != null)
+                            .collect(Collectors.toList()));
                 }
             case FLOAT:
+                return row.set(field.name(), isNull ? null : ((List<Float>)record.get(field.name())).stream()
+                        .filter(f -> f != null)
+                        .collect(Collectors.toList()));
             case DOUBLE:
+                return row.set(field.name(), isNull ? null : ((List<Double>)record.get(field.name())).stream()
+                        .filter(d -> d != null)
+                        .collect(Collectors.toList()));
             case BOOLEAN:
-                return row.set(field.name(), record.get(field.name()));
+                return row.set(field.name(), isNull ? null : ((List<Boolean>)record.get(field.name())).stream()
+                        .filter(b -> b != null)
+                        .collect(Collectors.toList()));
             case FIXED:
                 return row.set(field.name(), isNull ? null : ((List<GenericData.Fixed>)record.get(field.name()))
                         .stream()
+                        .filter(s -> s != null)
                         .map(s -> s.bytes())
                         .collect(Collectors.toList()));
             case RECORD:
                 return row.set(field.name(), isNull ? null : ((List<GenericRecord>)record.get(field.name()))
                         .stream()
+                        .filter(r -> r != null)
                         .map(r -> convert(r))
                         .collect(Collectors.toList()));
             case MAP:
                 // MAP in Array is not considerable ??
                 row.set(field.name(), isNull ? null : ((List<Map<Object,Object>>)record.get(field.name()))
                         .stream()
-                        .map(r -> r.entrySet().stream()
+                        .filter(m -> m != null)
+                        .map(m -> m.entrySet().stream()
                                 .map(e -> {
                                     final TableRow childMapRow = new TableRow();
                                     childMapRow.set("key", e.getKey() == null ? "" : e.getKey().toString());
@@ -203,16 +209,11 @@ public class RecordToTableRowConverter {
                                 .collect(Collectors.toList()))
                         .collect(Collectors.toList()));
             case UNION:
-                for(final Schema childSchema : field.schema().getTypes()) {
+                for(final Schema childSchema : type.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    for(final Schema cchildSchema : childSchema.getElementType().getTypes()) {
-                        if(Schema.Type.NULL.equals(cchildSchema.getType())) {
-                            continue;
-                        }
-                        return setArrayFieldValue(row, field, cchildSchema, record);
-                    }
+                    return setArrayFieldValue(row, field, childSchema, record);
                 }
                 return row;
             case ARRAY:
@@ -235,9 +236,11 @@ public class RecordToTableRowConverter {
             case STRING:
                 return value == null ? null : value.toString();
             case INT:
+                return value == null ? null : (Integer)value;
             case LONG:
                 return value == null ? null : (Long)value;
             case FLOAT:
+                return value == null ? null : (Float)value;
             case DOUBLE:
                 return value == null ? null : (Double)value;
             case BOOLEAN:

@@ -126,7 +126,7 @@ public class RecordToEntityConverter {
             case MAP:
                 return builder;
             case UNION:
-                for(final Schema childSchema : field.schema().getTypes()) {
+                for(final Schema childSchema : type.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
@@ -134,16 +134,7 @@ public class RecordToEntityConverter {
                 }
                 return builder;
             case ARRAY:
-                if (Schema.Type.UNION.equals(field.schema().getType())) {
-                    for(final Schema childSchema : field.schema().getTypes()) {
-                        if (Schema.Type.NULL.equals(childSchema.getType())) {
-                            continue;
-                        }
-                        return setArrayFieldValue(builder, field, childSchema.getElementType(), record, kind, keyField, depth);
-                    }
-                } else {
-                    return setArrayFieldValue(builder, field, field.schema().getElementType(), record, kind, keyField, depth);
-                }
+                return setArrayFieldValue(builder, field, type.getElementType(), record, kind, keyField, depth);
             case NULL:
                 return builder.putProperties(field.name(), Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
             default:
@@ -267,17 +258,11 @@ public class RecordToEntityConverter {
             case MAP:
                 return builder;
             case UNION:
-                for(final Schema childSchema : field.schema().getTypes()) {
+                for(final Schema childSchema : type.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    for(final Schema cchildSchema : childSchema.getElementType().getTypes()) {
-                        if(Schema.Type.NULL.equals(cchildSchema.getType())) {
-                            continue;
-                        }
-                        builder = setArrayFieldValue(builder, field, cchildSchema, record, kind, keyField, depth);
-                        return builder;
-                    }
+                    return setArrayFieldValue(builder, field, childSchema, record, kind, keyField, depth);
                 }
                 return builder;
             case ARRAY:
