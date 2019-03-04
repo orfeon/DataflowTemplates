@@ -29,10 +29,6 @@ public class SpannerSimpleIO {
         return new Read(projectId, instanceId, databaseId, query, timestampBound);
     }
 
-    public static Write write(String projectId, String instanceId, String databaseId, int limit) {
-        return new Write(projectId, instanceId, databaseId, limit);
-    }
-
 
     public static class Read extends PTransform<PBegin, PCollection<Struct>> {
 
@@ -221,109 +217,6 @@ public class SpannerSimpleIO {
                 this.spanner.close();
             }
 
-        }
-
-    }
-
-
-    public static class Write extends PTransform<PCollection<MutationGroup>, SpannerWriteResult> {
-
-        private final String projectId;
-        private final String instanceId;
-        private final String databaseId;
-        private final int limit;
-
-        private final TupleTag<Void> mainTag = new TupleTag<>("mainOut");
-        private final TupleTag<MutationGroup> failedTag = new TupleTag<>("failedMutations");
-
-        public SpannerWriteResult expand(PCollection<MutationGroup> mutations) {
-            final PCollectionTuple result = mutations
-                    .apply("As", ParDo.of(new WriteSpannerDoFn(this.projectId, this.instanceId, this.databaseId, this.failedTag, this.limit)).withOutputTags(mainTag, TupleTagList.of(failedTag)));
-
-            final PCollection<MutationGroup> failedMutations = result.get(failedTag);
-            failedMutations.setCoder(SerializableCoder.of(MutationGroup.class));
-            return new SpannerWriteResult(mutations.getPipeline(), result.get(mainTag), failedMutations, failedTag);
-        }
-
-        public class WriteSpannerDoFn extends DoFn<MutationGroup, Void> {
-
-            private final Logger log = LoggerFactory.getLogger(WriteSpannerDoFn.class);
-
-            private final String projectId;
-            private final String instanceId;
-            private final String databaseId;
-            private final TupleTag<MutationGroup> failedTag;
-            private final int limit;
-
-            private Spanner spanner;
-            private DatabaseClient databaseClient;
-            private BatchClient batchClient;
-            private DatabaseAdminClient databaseAdminClient;
-
-            private List<MutationGroup> mutations;
-
-            private WriteSpannerDoFn(String projectId, String instanceId, String databaseId, TupleTag<MutationGroup> failedTag, int limit) {
-                this.projectId = projectId;
-                this.instanceId = instanceId;
-                this.databaseId = databaseId;
-                this.failedTag = failedTag;
-                this.limit = limit;
-            }
-
-            @Setup
-            public void setup() throws Exception {
-                final SpannerOptions options = getDefaultInstance();
-                this.spanner = options.getService();
-                this.databaseClient = spanner.getDatabaseClient(
-                        DatabaseId.of(projectId, instanceId, databaseId));
-                this.batchClient = spanner.getBatchClient(
-                        DatabaseId.of(projectId, instanceId, databaseId));
-                this.databaseAdminClient = spanner.getDatabaseAdminClient();
-            }
-
-            @StartBundle
-            public void startBundle(StartBundleContext c) {
-                this.mutations = new ArrayList<>();
-            }
-
-            @FinishBundle
-            public void finishBundle(FinishBundleContext c) {
-                if(this.mutations.size() > 0) {
-                    Iterable<Mutation> ms = Iterables.concat(this.mutations);
-                    this.databaseClient.writeAtLeastOnce(ms);
-                    this.mutations.clear();
-                }
-            }
-
-            @Teardown
-            public void teardown() throws Exception {
-                this.spanner.close();
-            }
-
-            @ProcessElement
-            public void processElement(ProcessContext c) throws Exception {
-                this.mutations.add(c.element());
-                if(this.mutations.size() < this.limit) {
-                    return;
-                }
-                try {
-                    final Iterable<Mutation> ms = Iterables.concat(this.mutations);
-                    this.databaseClient.writeAtLeastOnce(ms);
-                    this.mutations.clear();
-                } catch (SpannerException e) {
-                    log.warn(e.getMessage());
-                    for(MutationGroup m : this.mutations) {
-                        c.output(failedTag, m);
-                    }
-                }
-            }
-        }
-
-        private Write(String projectId, String instanceId, String databaseId, int limit) {
-            this.projectId = projectId;
-            this.instanceId = instanceId;
-            this.databaseId = databaseId;
-            this.limit = limit;
         }
 
     }
