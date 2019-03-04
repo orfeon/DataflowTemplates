@@ -2,7 +2,7 @@ package net.orfeon.cloud.dataflow.templates.ml.bigquery;
 
 import com.google.cloud.spanner.Struct;
 import net.orfeon.cloud.dataflow.dofns.StructToMutationDoFn;
-import net.orfeon.cloud.dataflow.transforms.SpannerSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.SpannerQueryIO;
 import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import net.orfeon.cloud.dataflow.util.converter.MutationToStructConverter;
 import net.orfeon.cloud.dataflow.util.mlmodel.BQMLModel;
@@ -115,7 +115,7 @@ public class SpannerToBQMLToSpanner {
                 .apply("AsBQMLModelView", View.asSingleton());
 
         final SpannerWriteResult result = pipeline
-                .apply("QuerySpanner", SpannerSimpleIO.read(
+                .apply("QuerySpanner", SpannerQueryIO.read(
                         options.getInputProjectId(),
                         options.getInputInstanceId(),
                         options.getInputDatabaseId(),
