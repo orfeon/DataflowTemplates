@@ -2,6 +2,8 @@ tables:
   - name: dummy
     randomRate: 0
     fields:
+      - name: string
+        range: [A,B,C,D,E]
       - name: int
         range: [1,10]
       - name: float

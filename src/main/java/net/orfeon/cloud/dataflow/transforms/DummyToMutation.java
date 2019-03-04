@@ -271,9 +271,11 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
 
         private String readConfig(String source) throws IOException {
             if(source == null) {
+                LOG.info("Initialized without config file");
                 return null;
             }
             if(!source.startsWith("gs://")) {
+                LOG.info("Initialized with config file: %s", source);
                 return source;
             }
             String[] paths = source.replaceFirst("gs://", "").split("/", 2);
@@ -390,7 +392,7 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
                 if(fieldType.startsWith("BYTES")) {
                     return new BytesDummyGenerator(fieldName, lengthLimit, isPrimary, isNullable, randomRate);
                 }
-                return new StringDummyGenerator(fieldName, lengthLimit, isPrimary, isNullable, randomRate);
+                return new StringDummyGenerator(fieldName, lengthLimit, range, isPrimary, isNullable, randomRate);
             } else if(fieldType.equals("INT64")) {
                 return new IntDummyGenerator(fieldName, range, isPrimary, isNullable, randomRate);
             } else if(fieldType.equals("FLOAT64")) {
@@ -433,13 +435,15 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
     public static class StringDummyGenerator implements DummyGenerator {
 
         private final String fieldName;
+        private final List<String> range;
         private final Integer maxLength;
         private final Boolean isPrimary;
         private final Boolean isNullable;
         private final int randomRate;
 
-        public StringDummyGenerator(String fieldName, Integer maxLength, Boolean isPrimary, Boolean isNullable, int randomRate) {
+        public StringDummyGenerator(String fieldName, Integer maxLength, List<String> range, Boolean isPrimary, Boolean isNullable, int randomRate) {
             this.fieldName = fieldName;
+            this.range = range;
             this.maxLength = maxLength;
             this.isPrimary = isPrimary;
             this.isNullable = isNullable;
@@ -450,7 +454,10 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
             if(!isPrimary && DummyGenerator.randomNull(this.isNullable, this.randomRate)) {
                 return null;
             }
-            final String randomString = this.isPrimary ? Long.toString(value) : Hashing.sha512().hashLong(value).toString();
+            LOG.info("rangesize: %d, ", range.size());
+            String randomString = range != null && range.size() > 0 ? range.get(random.nextInt(range.size())) : Hashing.sha512().hashLong(value).toString();
+            LOG.info(randomString);
+            randomString = this.isPrimary ? Long.toString(value) : randomString;
             return maxLength > randomString.length() ? randomString : randomString.substring(0, maxLength);
         }
 
