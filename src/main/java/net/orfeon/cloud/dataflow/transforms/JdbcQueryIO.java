@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.Base64;
 
 
-public class JdbcSimpleIO {
+public class JdbcQueryIO {
 
     private static final String SQL_SPLITTER = "--SPLITTER--";
 

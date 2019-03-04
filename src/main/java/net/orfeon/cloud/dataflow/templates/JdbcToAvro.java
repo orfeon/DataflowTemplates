@@ -1,6 +1,6 @@
 package net.orfeon.cloud.dataflow.templates;
 
-import net.orfeon.cloud.dataflow.transforms.JdbcSimpleIO;
+import net.orfeon.cloud.dataflow.transforms.JdbcQueryIO;
 import net.orfeon.cloud.dataflow.transforms.StructToAvroTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.*;
@@ -52,16 +52,19 @@ public class JdbcToAvro {
     public static void main(String[] args) {
 
         JdbcToAvroPipelineOption options = PipelineOptionsFactory.fromArgs(args).as(JdbcToAvroPipelineOption.class);
-
         Pipeline pipeline = Pipeline.create(options);
-        pipeline.apply("Query", JdbcSimpleIO.read(
-                    options.getDriverClass(),
-                    options.getUrl(),
-                    options.getUsername(),
-                    options.getPassword(),
-                    options.getQuery(),
-                    options.getCryptoKeyName()))
-                .apply("StoreGCSAvro", new StructToAvroTransform(options.getOutput(), options.getFieldKey(), options.getUseSnappy()));
+
+        pipeline.apply("Query", JdbcQueryIO.read(
+                        options.getDriverClass(),
+                        options.getUrl(),
+                        options.getUsername(),
+                        options.getPassword(),
+                        options.getQuery(),
+                        options.getCryptoKeyName()))
+                .apply("StoreGCSAvro", new StructToAvroTransform(
+                        options.getOutput(),
+                        options.getFieldKey(),
+                        options.getUseSnappy()));
 
         pipeline.run();
     }
