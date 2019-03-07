@@ -64,22 +64,31 @@ public class RecordToTableRowConverter {
         return convert(record.getRecord());
     }
 
-    public static TableSchema convertTableSchema(final GenericRecord record) {
-        final List<TableFieldSchema> structFields = record.getSchema().getFields().stream()
-                .map(field -> getFieldTableSchema(field.name(), field.schema(), record))
+    public static TableSchema convertTableSchema(final Schema schema) {
+        final List<TableFieldSchema> structFields = schema.getFields().stream()
+                .map(field -> getFieldTableSchema(field.name(), field.schema()))
                 .filter(fieldSchema -> fieldSchema != null)
                 .collect(Collectors.toList());
         return new TableSchema().setFields(structFields);
     }
 
+    public static TableSchema convertTableSchema(final GenericRecord record) {
+        return convertTableSchema(record.getSchema());
+    }
+
     // for BigQueryIO.Write.withSchemaFromView
-    public static Map<String, String> convertTableSchema(final ValueProvider<String> output, final GenericRecord record) {
-        final TableSchema tableSchema = convertTableSchema(record);
+    public static Map<String, String> convertTableSchema(final ValueProvider<String> output, final Schema schema) {
+        final TableSchema tableSchema = convertTableSchema(schema);
         final String json = new Gson().toJson(tableSchema);
         LOG.info(String.format("Spanner Query Result Schema Json: %s", json));
         final Map<String,String> map = new HashMap<>();
         map.put(output.get(), json);
         return map;
+    }
+
+    // for BigQueryIO.Write.withSchemaFromView
+    public static Map<String, String> convertTableSchema(final ValueProvider<String> output, final GenericRecord record) {
+        return convertTableSchema(output, record.getSchema());
     }
 
     private static TableRow setFieldValue(TableRow row, final String fieldName, final Schema schema, final GenericRecord record) {
@@ -262,64 +271,52 @@ public class RecordToTableRowConverter {
 
     }
 
-    private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema, final GenericRecord record) {
-        return getFieldTableSchema(fieldName, schema, record, TableRowFieldMode.REQUIRED.name());
+    private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema) {
+        return getFieldTableSchema(fieldName, schema, TableRowFieldMode.REQUIRED);
     }
 
-    private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema, final GenericRecord record, final String mode) {
+    private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema, final TableRowFieldMode mode) {
         switch (schema.getType()) {
             case ENUM:
             case STRING:
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.STRING.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.STRING.name()).setMode(mode.name());
             case FIXED:
             case BYTES:
                 final Map<String,Object> props = schema.getObjectProps();
                 final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
                 final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
                 if (LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.NUMERIC.name()).setMode(mode);
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.NUMERIC.name()).setMode(mode.name());
                 }
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.BYTES.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.BYTES.name()).setMode(mode.name());
             case INT:
                 if (LogicalTypes.date().equals(schema.getLogicalType())) {
-                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.DATE.name()).setMode(mode);
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.DATE.name()).setMode(mode.name());
                 } else if (LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
-                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode);
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode.name());
                 }
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode.name());
             case LONG:
                 if (LogicalTypes.timestampMillis().equals(schema.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode);
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode.name());
                 } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
-                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode);
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode.name());
                 }
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode.name());
             case FLOAT:
             case DOUBLE:
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.FLOAT64.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.FLOAT64.name()).setMode(mode.name());
             case BOOLEAN:
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.BOOL.name()).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.BOOL.name()).setMode(mode.name());
             case RECORD:
-                if(record.get(fieldName) == null) {
-                    return null;
-                }
-                final GenericRecord childRecord;
-                if(record.get(fieldName) instanceof GenericRecord) {
-                    childRecord = (GenericRecord)record.get(fieldName);
-                } else {
-                    if(((List<GenericRecord>)record.get(fieldName)).size() == 0) {
-                        return null;
-                    }
-                    childRecord = ((List<GenericRecord>)record.get(fieldName)).get(0);
-                }
-                final List<TableFieldSchema> structFieldSchemas = childRecord.getSchema().getFields().stream()
-                        .map(field -> getFieldTableSchema(field.name(), field.schema(), childRecord))
+                final List<TableFieldSchema> structFieldSchemas = schema.getFields().stream()
+                        .map(field -> getFieldTableSchema(field.name(), field.schema()))
                         .collect(Collectors.toList());
-                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.STRUCT.name()).setFields(structFieldSchemas).setMode(mode);
+                return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.STRUCT.name()).setFields(structFieldSchemas).setMode(mode.name());
             case MAP:
                 final List<TableFieldSchema> mapFieldSchemas = ImmutableList.of(
-                        new TableFieldSchema().setName("key").setType(TableRowFieldType.STRING.name()).setMode(mode),
+                        new TableFieldSchema().setName("key").setType(TableRowFieldType.STRING.name()).setMode(mode.name()),
                         addMapValueType(new TableFieldSchema().setName("value"), schema.getValueType()));
                 return new TableFieldSchema()
                         .setName(fieldName)
@@ -331,11 +328,11 @@ public class RecordToTableRowConverter {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return getFieldTableSchema(fieldName, childSchema, record, TableRowFieldMode.NULLABLE.name());
+                    return getFieldTableSchema(fieldName, childSchema, TableRowFieldMode.NULLABLE);
                 }
                 throw new IllegalArgumentException();
             case ARRAY:
-                return getFieldTableSchema(fieldName, schema.getElementType(), record).setMode(TableRowFieldMode.REPEATED.name());
+                return getFieldTableSchema(fieldName, schema.getElementType()).setMode(TableRowFieldMode.REPEATED.name());
             case NULL:
                 // BigQuery ignores NULL value
                 // https://cloud.google.com/bigquery/data-formats#avro_format
@@ -356,55 +353,55 @@ public class RecordToTableRowConverter {
     }
 
     private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema) {
-        return addMapValueType(fieldSchema, schema, TableRowFieldMode.REQUIRED.name());
+        return addMapValueType(fieldSchema, schema, TableRowFieldMode.REQUIRED);
     }
 
-    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema, final String mode) {
+    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema, final TableRowFieldMode mode) {
         switch (schema.getType()) {
             case ENUM:
             case STRING:
-                return fieldSchema.setType(TableRowFieldType.STRING.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.STRING.name()).setMode(mode.name());
             case FIXED:
             case BYTES:
                 final Map<String,Object> props = schema.getObjectProps();
                 final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
                 final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
                 if (LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.NUMERIC.name()).setMode(mode);
+                    return fieldSchema.setType(TableRowFieldType.NUMERIC.name()).setMode(mode.name());
                 }
-                return fieldSchema.setType(TableRowFieldType.BYTES.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.BYTES.name()).setMode(mode.name());
             case INT:
                 if(LogicalTypes.date().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.DATE.name()).setMode(mode);
+                    return fieldSchema.setType(TableRowFieldType.DATE.name()).setMode(mode.name());
                 } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode);
+                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode.name());
                 }
-                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode.name());
             case LONG:
                 if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode);
+                    return fieldSchema.setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode.name());
                 } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode);
+                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode.name());
                 }
-                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode.name());
             case FLOAT:
             case DOUBLE:
-                return fieldSchema.setType(TableRowFieldType.FLOAT64.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.FLOAT64.name()).setMode(mode.name());
             case BOOLEAN:
-                return fieldSchema.setType(TableRowFieldType.BOOL.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.BOOL.name()).setMode(mode.name());
             case MAP:
-                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode.name());
             case UNION:
                 for (final Schema childSchema : schema.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return addMapValueType(fieldSchema, childSchema, TableRowFieldMode.NULLABLE.name());
+                    return addMapValueType(fieldSchema, childSchema, TableRowFieldMode.NULLABLE);
                 }
                 throw new IllegalArgumentException();
             case RECORD:
-                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode);
+                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode.name());
             case ARRAY:
                 return addMapValueType(fieldSchema, schema.getElementType(), mode);
             case NULL:

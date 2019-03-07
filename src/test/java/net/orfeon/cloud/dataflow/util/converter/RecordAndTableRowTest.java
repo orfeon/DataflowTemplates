@@ -2,14 +2,12 @@ package net.orfeon.cloud.dataflow.util.converter;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.cloud.Date;
 import net.orfeon.cloud.dataflow.util.DummyGenericRecordGenerator;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
-import org.apache.beam.sdk.options.ValueProvider;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -20,6 +18,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,14 +59,27 @@ public class RecordAndTableRowTest {
     }
 
     @Test
-    public void testSchema() throws Exception {
+    public void testMixNullable() throws Exception {
         final File tmpOutput = tmpDir.newFile();
-        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_notnull.json").getPath();
+        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
         final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10, tmpOutput);
         for(final GenericRecord record : records) {
-            TableSchema ts = RecordToTableRowConverter.convertTableSchema(record);
-            System.out.println(ts);
+            final TableRow row = RecordToTableRowConverter.convert(record);
+            System.out.println(record);
+            System.out.println(row);
+            for(final Schema.Field field : record.getSchema().getFields()) {
+                assertRecordAndTableRow(field, field.schema(), record, row);
+            }
         }
+    }
+
+    @Test
+    public void testSchema() throws Exception {
+        final File tmpOutput = tmpDir.newFile();
+        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
+        final Schema schema = DummyGenericRecordGenerator.generateSchema(schemaFilePath, tmpOutput);
+        TableSchema ts = RecordToTableRowConverter.convertTableSchema(schema);
+        System.out.println(ts);
     }
 
     private void assertRecordAndTableRow(final Schema.Field field, final Schema type, final GenericRecord record, final TableRow row) {
@@ -86,11 +98,11 @@ public class RecordAndTableRowTest {
             case INT:
                 final Long intValue = new Long((Integer)record.get(field.name()));
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
-                    final LocalDate ld = LocalDate.ofEpochDay(intValue);
-                    final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
-                    //assert date.equals(row.get(field.name()));
+                    final LocalDate localDate = LocalDate.ofEpochDay(intValue);
+                    assert localDate.format(DateTimeFormatter.ISO_LOCAL_DATE).equals(row.get(field.name()));
                 } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
-                    final LocalTime lt = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
+                    final LocalTime localTime = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
+                    assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(row.get(field.name()));
                 } else {
                     assert intValue.equals(row.get(field.name()));
                 }
@@ -102,7 +114,8 @@ public class RecordAndTableRowTest {
                     final Long seconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
                     assert seconds.equals(row.get(field.name()));
                 } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
-                    final LocalTime lt = LocalTime.ofNanoOfDay(longValue * 1000);
+                    final LocalTime localTime = LocalTime.ofNanoOfDay(longValue * 1000);
+                    assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(row.get(field.name()));
                 } else {
                     assert longValue.equals(row.get(field.name()));
                 }
@@ -126,7 +139,9 @@ public class RecordAndTableRowTest {
             case MAP:
                 final Map map = (Map)record.get(field.name());
                 for(final TableRow childMapRow : (List<TableRow>)row.get(field.name())) {
-                    if(map.get(new Utf8(childMapRow.get("key").toString())) instanceof Utf8) {
+                    if(childMapRow.get("value") == null) {
+                        assert map.get(new Utf8(childMapRow.get("key").toString())) == null;
+                    } else if(map.get(new Utf8(childMapRow.get("key").toString())) instanceof Utf8) {
                         assert map.get(new Utf8(childMapRow.get("key").toString())).toString().equals(childMapRow.get("value"));
                     } else {
                         assert map.get(new Utf8(childMapRow.get("key").toString())).equals(childMapRow.get("value"));
@@ -188,11 +203,11 @@ public class RecordAndTableRowTest {
                     }
                     final Long intLongValue = new Long(intValue);
                     if (LogicalTypes.date().equals(scheme.getLogicalType())) {
-                        final LocalDate ld = LocalDate.ofEpochDay(intLongValue);
-                        final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
-                        assert date.equals(rowArray.get(i));
+                        final LocalDate localDate = LocalDate.ofEpochDay(intLongValue);
+                        assert localDate.format(DateTimeFormatter.ISO_LOCAL_DATE).equals(rowArray.get(i));
                     } else if(LogicalTypes.timeMillis().equals(scheme.getLogicalType())) {
-                        final LocalTime lt = LocalTime.ofNanoOfDay(intLongValue * 1000 * 1000);
+                        final LocalTime localTime = LocalTime.ofNanoOfDay(intLongValue * 1000 * 1000);
+                        assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(rowArray.get(i));
                     } else {
                         assert intLongValue.equals(rowArray.get(i));
                     }
@@ -210,7 +225,8 @@ public class RecordAndTableRowTest {
                         final Long seconds = scheme.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
                         assert seconds.equals(rowArray.get(i));
                     } else if(LogicalTypes.timeMicros().equals(scheme.getLogicalType())) {
-                        final LocalTime lt = LocalTime.ofNanoOfDay(longValue * 1000);
+                        final LocalTime localTime = LocalTime.ofNanoOfDay(longValue * 1000);
+                        assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(rowArray.get(i));
                     } else {
                         assert longValue.equals(rowArray.get(i));
                     }

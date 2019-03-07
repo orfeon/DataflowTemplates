@@ -73,6 +73,11 @@ public class DummyGenericRecordGenerator {
         }
     }
 
+    public static Schema generateSchema(final String schemaFilePath, final File tmpOutput) throws Exception {
+        final List<GenericRecord> records = generate(schemaFilePath, 1, tmpOutput);
+        return records.get(0).getSchema();
+    }
+
 
     private static void modifyLogicalFieldValue(final Schema.Field field, final Schema type, final GenericRecord record) {
         if(record.get(field.name()) == null) {
