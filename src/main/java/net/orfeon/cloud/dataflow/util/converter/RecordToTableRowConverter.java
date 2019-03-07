@@ -242,7 +242,7 @@ public class RecordToTableRowConverter {
     }
 
     private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema, final GenericRecord record) {
-        return getFieldTableSchema(fieldName, schema, record, "REQUIRED");
+        return getFieldTableSchema(fieldName, schema, record, TableRowFieldMode.REQUIRED.name());
     }
 
     private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema, final GenericRecord record, final String mode) {
@@ -331,7 +331,7 @@ public class RecordToTableRowConverter {
     }
 
     private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema) {
-        return addMapValueType(fieldSchema, schema, "REQUIRED");
+        return addMapValueType(fieldSchema, schema, TableRowFieldMode.REQUIRED.name());
     }
 
     private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema, final String mode) {
