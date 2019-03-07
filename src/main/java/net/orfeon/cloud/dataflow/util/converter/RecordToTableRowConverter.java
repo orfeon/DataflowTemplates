@@ -273,7 +273,7 @@ public class RecordToTableRowConverter {
             case MAP:
                 final List<TableFieldSchema> mapFieldSchemas = ImmutableList.of(
                         new TableFieldSchema().setName("key").setType("STRING").setMode(mode),
-                        new TableFieldSchema().setName("value").setType(convertType(schema.getValueType())).setMode("NULLABLE"));
+                        addMapValueType(new TableFieldSchema().setName("value"), schema.getValueType()));
                 return new TableFieldSchema().setName(fieldName).setType("STRUCT").setFields(mapFieldSchemas).setMode("REPEATED");
             case UNION:
                 for (final Schema childSchema : schema.getTypes()) {
@@ -304,50 +304,54 @@ public class RecordToTableRowConverter {
         }
     }
 
-    private static String convertType(final Schema schema) {
+    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema) {
+        return addMapValueType(fieldSchema, schema, "REQUIRED");
+    }
+
+    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema, final String mode) {
         switch (schema.getType()) {
             case ENUM:
             case STRING:
-                return "STRING";
+                return fieldSchema.setType("STRING").setMode(mode);
             case FIXED:
             case BYTES:
                 final Map<String,Object> props = schema.getObjectProps();
                 final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
                 final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
                 if (LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    return "NUMERIC";
+                    return fieldSchema.setType("NUMERIC").setMode(mode);
                 }
-                return "BYTES";
+                return fieldSchema.setType("BYTES").setMode(mode);
             case INT:
                 if(LogicalTypes.date().equals(schema.getLogicalType())) {
-                    return "DATE";
+                    return fieldSchema.setType("DATE").setMode(mode);
                 }
-                return "INTEGER";
+                return fieldSchema.setType("INTEGER").setMode(mode);
             case LONG:
                 if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return "TIMESTAMP";
+                    return fieldSchema.setType("TIMESTAMP").setMode(mode);
                 }
-                return "INTEGER";
+                return fieldSchema.setType("INTEGER").setMode(mode);
             case FLOAT:
             case DOUBLE:
-                return "FLOAT";
+                return fieldSchema.setType("FLOAT").setMode(mode);
             case BOOLEAN:
-                return "BOOL";
+                return fieldSchema.setType("BOOL").setMode(mode);
             case MAP:
-                return "STRUCT";
+                return fieldSchema.setType("STRUCT").setMode(mode);
             case UNION:
                 for (final Schema childSchema : schema.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return convertType(childSchema);
+                    return addMapValueType(fieldSchema, childSchema, "NULLABLE");
                 }
                 throw new IllegalArgumentException();
             case RECORD:
-                return "STRUCT";
+                return fieldSchema.setType("STRUCT").setMode(mode);
             case ARRAY:
-                return convertType(schema.getElementType());
+                return addMapValueType(fieldSchema, schema.getElementType(), mode);
             case NULL:
                 return null;
             default:
