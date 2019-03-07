@@ -273,7 +273,7 @@ public class RecordToTableRowConverter {
             case MAP:
                 final List<TableFieldSchema> mapFieldSchemas = ImmutableList.of(
                         new TableFieldSchema().setName("key").setType("STRING").setMode(mode),
-                        new TableFieldSchema().setName("value").setType(convertType(schema.getValueType())).setMode(mode));
+                        new TableFieldSchema().setName("value").setType(convertType(schema.getValueType())).setMode("NULLABLE"));
                 return new TableFieldSchema().setName(fieldName).setType("STRUCT").setFields(mapFieldSchemas).setMode("REPEATED");
             case UNION:
                 for (final Schema childSchema : schema.getTypes()) {
