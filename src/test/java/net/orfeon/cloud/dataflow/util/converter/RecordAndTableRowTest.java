@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -88,6 +89,8 @@ public class RecordAndTableRowTest {
                     final LocalDate ld = LocalDate.ofEpochDay(intValue);
                     final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                     //assert date.equals(row.get(field.name()));
+                } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
+                    final LocalTime lt = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
                 } else {
                     assert intValue.equals(row.get(field.name()));
                 }
@@ -98,6 +101,8 @@ public class RecordAndTableRowTest {
                         || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
                     final Long seconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
                     assert seconds.equals(row.get(field.name()));
+                } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
+                    final LocalTime lt = LocalTime.ofNanoOfDay(longValue * 1000);
                 } else {
                     assert longValue.equals(row.get(field.name()));
                 }
@@ -186,6 +191,8 @@ public class RecordAndTableRowTest {
                         final LocalDate ld = LocalDate.ofEpochDay(intLongValue);
                         final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                         assert date.equals(rowArray.get(i));
+                    } else if(LogicalTypes.timeMillis().equals(scheme.getLogicalType())) {
+                        final LocalTime lt = LocalTime.ofNanoOfDay(intLongValue * 1000 * 1000);
                     } else {
                         assert intLongValue.equals(rowArray.get(i));
                     }
@@ -202,6 +209,8 @@ public class RecordAndTableRowTest {
                             || LogicalTypes.timestampMicros().equals(scheme.getLogicalType())) {
                         final Long seconds = scheme.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
                         assert seconds.equals(rowArray.get(i));
+                    } else if(LogicalTypes.timeMicros().equals(scheme.getLogicalType())) {
+                        final LocalTime lt = LocalTime.ofNanoOfDay(longValue * 1000);
                     } else {
                         assert longValue.equals(rowArray.get(i));
                     }

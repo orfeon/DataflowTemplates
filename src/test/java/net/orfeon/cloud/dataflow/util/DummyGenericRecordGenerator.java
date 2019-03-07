@@ -32,8 +32,8 @@ public class DummyGenericRecordGenerator {
     public void generateDummyAvroFile() throws Exception {
         //
         final int count = 10;
-        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_nullable.json").getPath();
-        final String avroFilePath = "{avro output path";
+        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
+        final String avroFilePath = "{output path}";
 
         List<GenericRecord> records = generate(schemaFilePath, count, tmpDir.newFile());
         final Schema schema = records.get(0).getSchema();
@@ -82,12 +82,16 @@ public class DummyGenericRecordGenerator {
             case INT:
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
                     record.put(field.name(), crop((Integer)record.get(field.name()), -719162, 0));
+                } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
+                    record.put(field.name(), crop((Integer)record.get(field.name()), 0, 86399999));
                 }
                 break;
             case LONG:
                 if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
                     record.put(field.name(), crop((Long)record.get(field.name()), -719162L, 0L));
+                } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
+                    record.put(field.name(), crop((Long)record.get(field.name()), 0L, 86399999999L));
                 }
                 break;
             case FIXED:
@@ -148,6 +152,28 @@ public class DummyGenericRecordGenerator {
                     final List<Integer> is = new ArrayList<>();
                     for(final Object o : values) {
                         is.add(crop((Integer)o, -719162, 0));
+                    }
+                    record.put(field.name(), is);
+                } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
+                    final List<Integer> is = new ArrayList<>();
+                    for(final Object o : values) {
+                        is.add(crop((Integer)o, 0, 86399999));
+                    }
+                    record.put(field.name(), is);
+                }
+                break;
+            case LONG:
+                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
+                    final List<Long> is = new ArrayList<>();
+                    for(final Object o : values) {
+                        is.add(crop((Long)o, -719162L, 0L));
+                    }
+                    record.put(field.name(), is);
+                } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
+                    final List<Long> is = new ArrayList<>();
+                    for(final Object o : values) {
+                        is.add(crop((Long)o, 0L, 86399999999L));
                     }
                     record.put(field.name(), is);
                 }

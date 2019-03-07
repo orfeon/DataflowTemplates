@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -105,14 +106,20 @@ public class RecordToTableRowConverter {
                 if(LogicalTypes.date().equals(schema.getLogicalType())) {
                     final LocalDate localDate = LocalDate.ofEpochDay(intValue);
                     return row.set(fieldName, localDate.format(DateTimeFormatter.ISO_LOCAL_DATE));
+                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
+                    LocalTime time = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
+                    return row.set(fieldName, time.format(DateTimeFormatter.ISO_LOCAL_TIME));
                 }
                 return row.set(fieldName, intValue);
             case LONG:
                 final Long longValue = (Long)record.get(fieldName);
-                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    final Long seconds = schema.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000;
-                    return row.set(fieldName, seconds);
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
+                    return row.set(fieldName, longValue / 1000);
+                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    return row.set(fieldName, longValue / 1000000);
+                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
+                    LocalTime time = LocalTime.ofNanoOfDay(longValue * 1000);
+                    return row.set(fieldName, time.format(DateTimeFormatter.ISO_LOCAL_TIME));
                 }
                 return row.set(fieldName, longValue);
             case FLOAT:
@@ -178,6 +185,12 @@ public class RecordToTableRowConverter {
                             .map(days -> LocalDate.ofEpochDay(days))
                             .map(localDate -> localDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
                             .collect(Collectors.toList()));
+                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
+                    return row.set(fieldName, intValues.stream()
+                            .map(millisec -> millisec.longValue())
+                            .map(millisec -> LocalTime.ofNanoOfDay(millisec * 1000 * 1000))
+                            .map(localTime -> localTime.format(DateTimeFormatter.ISO_LOCAL_TIME))
+                            .collect(Collectors.toList()));
                 } else {
                     return row.set(fieldName, intValues.stream()
                             .map(intValue -> intValue.longValue())
@@ -185,10 +198,18 @@ public class RecordToTableRowConverter {
                 }
             case LONG:
                 final List<Long> longValues = filterNull((List<Long>)record.get(fieldName));
-                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
                     return row.set(fieldName, isNull ? null : longValues.stream()
-                            .map(longValue -> schema.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue / 1000000 : longValue / 1000)
+                            .map(millisec -> millisec / 1000)
+                            .collect(Collectors.toList()));
+                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    return row.set(fieldName, isNull ? null : longValues.stream()
+                            .map(microsec -> microsec / 1000000)
+                            .collect(Collectors.toList()));
+                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
+                    return row.set(fieldName, isNull ? null : longValues.stream()
+                            .map(microsec -> LocalTime.ofNanoOfDay(microsec * 1000))
+                            .map(localTime -> localTime.format(DateTimeFormatter.ISO_LOCAL_TIME))
                             .collect(Collectors.toList()));
                 } else {
                     return row.set(fieldName, isNull ? null : longValues);
@@ -262,12 +283,16 @@ public class RecordToTableRowConverter {
             case INT:
                 if (LogicalTypes.date().equals(schema.getLogicalType())) {
                     return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.DATE.name()).setMode(mode);
+                } else if (LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode);
                 }
                 return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode);
             case LONG:
                 if (LogicalTypes.timestampMillis().equals(schema.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
                     return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode);
+                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
+                    return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.TIME.name()).setMode(mode);
                 }
                 return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.INT64.name()).setMode(mode);
             case FLOAT:
@@ -351,12 +376,16 @@ public class RecordToTableRowConverter {
             case INT:
                 if(LogicalTypes.date().equals(schema.getLogicalType())) {
                     return fieldSchema.setType(TableRowFieldType.DATE.name()).setMode(mode);
+                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
+                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode);
                 }
                 return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode);
             case LONG:
                 if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
                         || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
                     return fieldSchema.setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode);
+                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
+                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode);
                 }
                 return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode);
             case FLOAT:
