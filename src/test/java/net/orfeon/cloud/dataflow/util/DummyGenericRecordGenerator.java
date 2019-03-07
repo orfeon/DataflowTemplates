@@ -3,19 +3,51 @@ package net.orfeon.cloud.dataflow.util;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.tool.CreateRandomFileTool;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 
 public class DummyGenericRecordGenerator {
+
+    @Rule
+    public final TemporaryFolder tmpDir = new TemporaryFolder();
+
+    @Test
+    public void generateDummyAvroFile() throws Exception {
+        //
+        final int count = 10;
+        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_nullable.json").getPath();
+        final String avroFilePath = "{avro output path";
+
+        List<GenericRecord> records = generate(schemaFilePath, count, tmpDir.newFile());
+        final Schema schema = records.get(0).getSchema();
+        try (DataFileWriter<Object> writer = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+            writer.create(schema, new File(avroFilePath));
+            records.stream().forEach(record -> {
+                try {
+                    writer.append(record);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
 
     public static List<GenericRecord> generate(final String schemaFilePath, final int count, final File tmpOutput) throws Exception {
         final List<String> args = new ArrayList<>();
@@ -49,16 +81,40 @@ public class DummyGenericRecordGenerator {
         switch (type.getType()) {
             case INT:
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
-                    record.put(field.name(), crop((Integer)record.get(field.name()), -719162, 100000));
+                    record.put(field.name(), crop((Integer)record.get(field.name()), -719162, 0));
+                }
+                break;
+            case LONG:
+                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
+                    record.put(field.name(), crop((Long)record.get(field.name()), -719162L, 0L));
+                }
+                break;
+            case FIXED:
+                final int precisionFixed = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scaleFixed = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precisionFixed, scaleFixed).equals(type.getLogicalType())) {
+                    GenericData.Fixed fixed = (GenericData.Fixed)record.get(field.name());
+                    final byte[] bytes = fixed.bytes();
+                    if(bytes.length == 0) {
+                        BigDecimal bd = BigDecimal.valueOf(0, scaleFixed);
+                        //record.put(field.name(), new GenericData.Fixed(fixed.getSchema(), bd.toBigInteger().toByteArray()));
+                    } else if(new BigDecimal(new BigInteger(bytes), scaleFixed).precision() != precisionFixed) {
+                        final BigDecimal bd2 = generateBigDecimal(precisionFixed, scaleFixed);
+                        //record.put(field.name(), new GenericData.Fixed(fixed.getSchema(), bd2.toBigInteger().toByteArray()));
+                    }
                 }
                 break;
             case BYTES:
-                final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scale = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
-                    final ByteBuffer bf = (ByteBuffer)record.get(field.name());
-                    if(bf.array().length == 0) {
-                        record.put(field.name(), ByteBuffer.wrap(BigDecimal.valueOf(0, scale).toBigInteger().toByteArray()));
+                final int precisionBytes = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scaleBytes = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precisionBytes, scaleBytes).equals(type.getLogicalType())) {
+                    final byte[] bytes = ((ByteBuffer)record.get(field.name())).array();
+                    if(bytes.length == 0) {
+                        record.put(field.name(), ByteBuffer.wrap(BigDecimal.valueOf(0, scaleBytes).toBigInteger().toByteArray()));
+                    } else if(new BigDecimal(new BigInteger(bytes), scaleBytes).precision() != precisionBytes) {
+                        final BigDecimal bd2 = generateBigDecimal(precisionBytes, scaleBytes);
+                        record.put(field.name(), ByteBuffer.wrap(bd2.toBigInteger().toByteArray()));
                     }
                 }
                 break;
@@ -91,25 +147,52 @@ public class DummyGenericRecordGenerator {
                 if(LogicalTypes.date().equals(type.getLogicalType())) {
                     final List<Integer> is = new ArrayList<>();
                     for(final Object o : values) {
-                        is.add(crop((Integer)o, -719162, 100000));
+                        is.add(crop((Integer)o, -719162, 0));
                     }
                     record.put(field.name(), is);
                 }
                 break;
-            case BYTES:
-                final int precision_ = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scale_ = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precision_, scale_).equals(type.getLogicalType())) {
-                    final List<ByteBuffer> is = new ArrayList<>();
-                    for(final Object o : values) {
-                        final ByteBuffer bf = (ByteBuffer)o;
-                        if(bf.array().length == 0) {
-                            is.add(ByteBuffer.wrap(BigDecimal.valueOf(0, scale_).toBigInteger().toByteArray()));
+            case FIXED:
+                final int precisionFixed = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scaleFixed = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precisionFixed, scaleFixed).equals(type.getLogicalType())) {
+                    final List<GenericData.Fixed> fixeds = new ArrayList<>();
+                    for(final Object value : values) {
+                        final GenericData.Fixed fixed = (GenericData.Fixed)value;
+                        final byte[] bytes = fixed.bytes();
+                        if(bytes.length == 0) {
+                            BigDecimal bf2 = generateBigDecimal(precisionFixed, scaleFixed);
+                            fixeds.add(new GenericData.Fixed(field.schema(), bf2.toBigInteger().toByteArray()));
+                            fixeds.add(fixed);
+                        } else if(new BigDecimal(new BigInteger(bytes), scaleFixed).precision() > precisionFixed) {
+                            BigDecimal bf2 = generateBigDecimal(precisionFixed, scaleFixed);
+                            fixeds.add(new GenericData.Fixed(field.schema(), bf2.toBigInteger().toByteArray()));
+                            fixeds.add(fixed);
                         } else {
-                            is.add(bf);
+                            fixeds.add(fixed);
                         }
                     }
-                    record.put(field.name(), is);
+                    //record.put(field.name(), fixeds);
+                }
+                break;
+            case BYTES:
+                final int precisionBytes = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
+                final int scaleBytes = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precisionBytes, scaleBytes).equals(type.getLogicalType())) {
+                    final List<ByteBuffer> buffers = new ArrayList<>();
+                    for(final Object o : values) {
+                        final byte[] bytes = ((ByteBuffer)o).array();
+                        if(bytes.length == 0) {
+                            BigDecimal bf2 = generateBigDecimal(precisionBytes, scaleBytes);
+                            buffers.add(ByteBuffer.wrap(bf2.toBigInteger().toByteArray()));
+                        } else if(new BigDecimal(new BigInteger(bytes), scaleBytes).precision() > precisionBytes) {
+                            BigDecimal bf2 = generateBigDecimal(precisionBytes, scaleBytes);
+                            buffers.add(ByteBuffer.wrap(bf2.toBigInteger().toByteArray()));
+                        } else {
+                            buffers.add(ByteBuffer.wrap(bytes));
+                        }
+                    }
+                    record.put(field.name(), buffers);
                 }
                 break;
             case UNION:
@@ -147,5 +230,16 @@ public class DummyGenericRecordGenerator {
             return max;
         }
         return value;
+    }
+
+    private static BigDecimal generateBigDecimal(int precision, int scale) {
+        StringBuilder sb = new StringBuilder();
+        for(int i=precision; i>0; i--) {
+            if(i == scale) {
+                sb.append(".");
+            }
+            sb.append("1");
+        }
+        return new BigDecimal(sb.toString());
     }
 }
