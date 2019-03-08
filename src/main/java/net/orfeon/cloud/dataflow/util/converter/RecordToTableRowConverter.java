@@ -53,9 +53,9 @@ public class RecordToTableRowConverter {
     }
 
     public static TableRow convert(GenericRecord record) {
-        TableRow row = new TableRow();
+        final TableRow row = new TableRow();
         for(final Schema.Field field : record.getSchema().getFields()) {
-            row = setFieldValue(row, field.name(), field.schema(), record);
+            row.set(field.name(), convertTableRowValue(field.schema(), record.get(field.name())));
         }
         return row;
     }
@@ -91,185 +91,6 @@ public class RecordToTableRowConverter {
         return convertTableSchema(output, record.getSchema());
     }
 
-    private static TableRow setFieldValue(TableRow row, final String fieldName, final Schema schema, final GenericRecord record) {
-        if(record.get(fieldName) == null) {
-            return row.set(fieldName, null);
-        }
-        switch (schema.getType()) {
-            case ENUM:
-            case STRING:
-                return row.set(fieldName, record.get(fieldName).toString());
-            case BYTES:
-                final Map<String,Object> props = schema.getObjectProps();
-                final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
-                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
-                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    final ByteBuffer bytes = (ByteBuffer)record.get(fieldName);
-                    final BigDecimal bigDecimal = BigDecimal.valueOf(new BigInteger(bytes.array()).longValue(), scale);
-                    return row.set(fieldName, bigDecimal);
-                }
-                final ByteBuffer bytes = (ByteBuffer)record.get(fieldName);
-                return row.set(fieldName, bytes);
-            case INT:
-                final Long intValue = new Long((Integer)record.get(fieldName));
-                if(LogicalTypes.date().equals(schema.getLogicalType())) {
-                    final LocalDate localDate = LocalDate.ofEpochDay(intValue);
-                    return row.set(fieldName, localDate.format(DateTimeFormatter.ISO_LOCAL_DATE));
-                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
-                    LocalTime time = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
-                    return row.set(fieldName, time.format(DateTimeFormatter.ISO_LOCAL_TIME));
-                }
-                return row.set(fieldName, intValue);
-            case LONG:
-                final Long longValue = (Long)record.get(fieldName);
-                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, longValue / 1000);
-                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, longValue / 1000000);
-                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
-                    LocalTime time = LocalTime.ofNanoOfDay(longValue * 1000);
-                    return row.set(fieldName, time.format(DateTimeFormatter.ISO_LOCAL_TIME));
-                }
-                return row.set(fieldName, longValue);
-            case FLOAT:
-            case DOUBLE:
-            case BOOLEAN:
-                return row.set(fieldName, record.get(fieldName));
-            case FIXED:
-                final GenericData.Fixed fixed = (GenericData.Fixed)record.get(fieldName);
-                return row.set(fieldName, fixed.bytes());
-            case RECORD:
-                final TableRow childRow = convert((GenericRecord)record.get(fieldName));
-                return row.set(fieldName, childRow);
-            case MAP:
-                final Map<Object, Object> map = (Map)record.get(fieldName);
-                return row.set(fieldName, map.entrySet().stream()
-                        .map(entry -> new TableRow()
-                                    .set("key", entry.getKey() == null ? "" : entry.getKey().toString())
-                                    .set("value", convertValue(schema.getValueType().getType(), entry.getValue())))
-                        .collect(Collectors.toList()));
-            case UNION:
-                for(final Schema childSchema : schema.getTypes()) {
-                    if (Schema.Type.NULL.equals(childSchema.getType())) {
-                        continue;
-                    }
-                    return setFieldValue(row, fieldName, childSchema, record);
-                }
-                return row;
-            case ARRAY:
-                return setArrayFieldValue(row, fieldName, schema.getElementType(), record);
-            case NULL:
-                // BigQuery ignores NULL value
-                // https://cloud.google.com/bigquery/data-formats#avro_format
-                return row;
-            default:
-                return row;
-        }
-    }
-
-    private static TableRow setArrayFieldValue(TableRow row, final String fieldName, final Schema schema, final GenericRecord record) {
-        boolean isNull = record.get(fieldName) == null;
-        switch (schema.getType()) {
-            case ENUM:
-            case STRING:
-                return row.set(fieldName, isNull ? null : ((List<Object>)record.get(fieldName)).stream()
-                        .filter(utf8 -> utf8 != null)
-                        .map(utf8 -> utf8.toString())
-                        .collect(Collectors.toList()));
-            case BYTES:
-                final List<ByteBuffer> bytesValues = filterNull((List<ByteBuffer>)record.get(fieldName));
-                final Map<String,Object> map = schema.getObjectProps();
-                final int scale = map.containsKey("scale") ? Integer.valueOf(map.get("scale").toString()) : 0;
-                final int precision = map.containsKey("precision") ? Integer.valueOf(map.get("precision").toString()) : 0;
-                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    return row.set(fieldName, isNull ? null : bytesValues.stream()
-                            .map(bytes -> BigDecimal.valueOf(new BigInteger(bytes.array()).longValue(), scale))
-                            .collect(Collectors.toList()));
-                }
-                return row.set(fieldName, isNull ? null : bytesValues);
-            case INT:
-                final List<Integer> intValues =  filterNull((List<Integer>) record.get(fieldName));
-                if(LogicalTypes.date().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, isNull ? null : intValues.stream()
-                            .map(days -> LocalDate.ofEpochDay(days))
-                            .map(localDate -> localDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                            .collect(Collectors.toList()));
-                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, intValues.stream()
-                            .map(millisec -> millisec.longValue())
-                            .map(millisec -> LocalTime.ofNanoOfDay(millisec * 1000 * 1000))
-                            .map(localTime -> localTime.format(DateTimeFormatter.ISO_LOCAL_TIME))
-                            .collect(Collectors.toList()));
-                } else {
-                    return row.set(fieldName, intValues.stream()
-                            .map(intValue -> intValue.longValue())
-                            .collect(Collectors.toList()));
-                }
-            case LONG:
-                final List<Long> longValues = filterNull((List<Long>)record.get(fieldName));
-                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, isNull ? null : longValues.stream()
-                            .map(millisec -> millisec / 1000)
-                            .collect(Collectors.toList()));
-                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, isNull ? null : longValues.stream()
-                            .map(microsec -> microsec / 1000000)
-                            .collect(Collectors.toList()));
-                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
-                    return row.set(fieldName, isNull ? null : longValues.stream()
-                            .map(microsec -> LocalTime.ofNanoOfDay(microsec * 1000))
-                            .map(localTime -> localTime.format(DateTimeFormatter.ISO_LOCAL_TIME))
-                            .collect(Collectors.toList()));
-                } else {
-                    return row.set(fieldName, isNull ? null : longValues);
-                }
-            case FLOAT:
-                return row.set(fieldName, isNull ? null : filterNull((List<Float>)record.get(fieldName)));
-            case DOUBLE:
-                return row.set(fieldName, isNull ? null : filterNull((List<Double>)record.get(fieldName)));
-            case BOOLEAN:
-                return row.set(fieldName, isNull ? null : filterNull((List<Boolean>)record.get(fieldName)));
-            case FIXED:
-                return row.set(fieldName, isNull ? null : ((List<GenericData.Fixed>)record.get(fieldName)).stream()
-                        .filter(s -> s != null)
-                        .map(s -> s.bytes())
-                        .collect(Collectors.toList()));
-            case RECORD:
-                return row.set(fieldName, isNull ? null : ((List<GenericRecord>)record.get(fieldName)).stream()
-                        .filter(r -> r != null)
-                        .map(r -> convert(r))
-                        .collect(Collectors.toList()));
-            case MAP:
-                // MAP in Array is not considerable ??
-                row.set(fieldName, isNull ? null : ((List<Map<Object,Object>>)record.get(fieldName)).stream()
-                        .filter(m -> m != null)
-                        .map(m -> m.entrySet().stream()
-                                .map(entry -> new TableRow()
-                                        .set("key", entry.getKey() == null ? "" : entry.getKey().toString())
-                                        .set("value", convertValue(schema.getValueType().getType(), entry.getValue())))
-                                .collect(Collectors.toList()))
-                        .collect(Collectors.toList()));
-            case UNION:
-                for(final Schema childSchema : schema.getTypes()) {
-                    if (Schema.Type.NULL.equals(childSchema.getType())) {
-                        continue;
-                    }
-                    return setArrayFieldValue(row, fieldName, childSchema, record);
-                }
-                return row;
-            case ARRAY:
-                // BigQuery does not support nested array.
-                // https://cloud.google.com/bigquery/data-formats#avro_format
-                return row;
-            case NULL:
-                // BigQuery ignore NULL value
-                // https://cloud.google.com/bigquery/data-formats#avro_format
-                return row;
-            default:
-                return row;
-        }
-
-    }
 
     private static TableFieldSchema getFieldTableSchema(final String fieldName, final Schema schema) {
         return getFieldTableSchema(fieldName, schema, TableRowFieldMode.REQUIRED);
@@ -316,8 +137,9 @@ public class RecordToTableRowConverter {
                 return new TableFieldSchema().setName(fieldName).setType(TableRowFieldType.STRUCT.name()).setFields(structFieldSchemas).setMode(mode.name());
             case MAP:
                 final List<TableFieldSchema> mapFieldSchemas = ImmutableList.of(
-                        new TableFieldSchema().setName("key").setType(TableRowFieldType.STRING.name()).setMode(mode.name()),
-                        addMapValueType(new TableFieldSchema().setName("value"), schema.getValueType()));
+                        new TableFieldSchema().setName("key").setType(TableRowFieldType.STRING.name()).setMode(TableRowFieldMode.REQUIRED.name()),
+                        getFieldTableSchema("value", schema.getValueType()));
+                        //addMapValueType(new TableFieldSchema().setName("value"), schema.getValueType()));
                 return new TableFieldSchema()
                         .setName(fieldName)
                         .setType(TableRowFieldType.STRUCT.name())
@@ -342,80 +164,95 @@ public class RecordToTableRowConverter {
         }
     }
 
-    private static Object convertValue(final Schema.Type type, final Object value) {
-        switch(type) {
-            case ENUM:
-            case STRING:
-                return value == null ? null : value.toString();
-            default:
-                return value;
+    private static Object convertTableRowValue(final Schema schema, final Object value) {
+        return convertTableRowValue(schema, value, false);
+    }
+
+    private static Object convertTableRowValues(final Schema schema, final Object value) {
+        return convertTableRowValue(schema, value, true);
+    }
+
+    private static Object convertTableRowValue(final Schema schema, final Object value, final boolean isArray) {
+        if(value == null) {
+            return null;
         }
-    }
-
-    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema) {
-        return addMapValueType(fieldSchema, schema, TableRowFieldMode.REQUIRED);
-    }
-
-    private static TableFieldSchema addMapValueType(final TableFieldSchema fieldSchema, final Schema schema, final TableRowFieldMode mode) {
-        switch (schema.getType()) {
+        if(isArray) {
+            return ((List<Object>)value).stream()
+                    .map(v -> convertTableRowValue(schema, v))
+                    .filter(v -> v != null)
+                    .collect(Collectors.toList());
+        }
+        switch(schema.getType()) {
             case ENUM:
             case STRING:
-                return fieldSchema.setType(TableRowFieldType.STRING.name()).setMode(mode.name());
+                return value.toString();
             case FIXED:
             case BYTES:
                 final Map<String,Object> props = schema.getObjectProps();
                 final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
-                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
-                if (LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.NUMERIC.name()).setMode(mode.name());
+                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : -1;
+                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
+                    final byte[] bytes;
+                    if(Schema.Type.FIXED.equals(schema.getType())) {
+                        bytes = ((GenericData.Fixed)value).bytes();
+                    } else {
+                        bytes = ((ByteBuffer)value).array();
+                    }
+                    if(bytes.length == 0) {
+                        return BigDecimal.valueOf(0, 0);
+                    }
+                    return BigDecimal.valueOf(new BigInteger(bytes).longValue(), scale);
                 }
-                return fieldSchema.setType(TableRowFieldType.BYTES.name()).setMode(mode.name());
+                if(Schema.Type.FIXED.equals(schema.getType())) {
+                    return ByteBuffer.wrap(((GenericData.Fixed)value).bytes());
+                }
+                return value;
             case INT:
                 if(LogicalTypes.date().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.DATE.name()).setMode(mode.name());
+                    final LocalDate localDate = LocalDate.ofEpochDay((Integer)value);
+                    return localDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
                 } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode.name());
+                    final Long intValue = new Long((Integer)value);
+                    final LocalTime localTime = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
+                    return localTime.format(DateTimeFormatter.ISO_LOCAL_TIME);
                 }
-                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode.name());
+                return value;
             case LONG:
-                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIMESTAMP.name()).setMode(mode.name());
+                final Long longValue = (Long)value;
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
+                    return longValue / 1000;
+                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    return longValue / 1000000;
                 } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
-                    return fieldSchema.setType(TableRowFieldType.TIME.name()).setMode(mode.name());
+                    LocalTime time = LocalTime.ofNanoOfDay(longValue * 1000);
+                    return time.format(DateTimeFormatter.ISO_LOCAL_TIME);
                 }
-                return fieldSchema.setType(TableRowFieldType.INT64.name()).setMode(mode.name());
+                return value;
             case FLOAT:
             case DOUBLE:
-                return fieldSchema.setType(TableRowFieldType.FLOAT64.name()).setMode(mode.name());
             case BOOLEAN:
-                return fieldSchema.setType(TableRowFieldType.BOOL.name()).setMode(mode.name());
+                return value;
+            case RECORD:
+                return convert((GenericRecord) value);
             case MAP:
-                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode.name());
+                final Map<Object, Object> map = (Map)value;
+                return map.entrySet().stream()
+                        .map(entry -> new TableRow()
+                                .set("key", entry.getKey() == null ? "" : entry.getKey().toString())
+                                .set("value", convertTableRowValue(schema.getValueType(), entry.getValue())))
+                        .collect(Collectors.toList());
             case UNION:
-                for (final Schema childSchema : schema.getTypes()) {
+                for(final Schema childSchema : schema.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return addMapValueType(fieldSchema, childSchema, TableRowFieldMode.NULLABLE);
+                    return convertTableRowValue(childSchema, value);
                 }
-                throw new IllegalArgumentException();
-            case RECORD:
-                return fieldSchema.setType(TableRowFieldType.STRUCT.name()).setMode(mode.name());
             case ARRAY:
-                return addMapValueType(fieldSchema, schema.getElementType(), mode);
-            case NULL:
-                return null;
+                return convertTableRowValues(schema.getElementType(), value);
             default:
-                return null;
+                return value;
         }
-
-    }
-
-    private static <T> List<T> filterNull(final List<T> list) {
-        return list.stream()
-                .filter(value -> value != null)
-                .collect(Collectors.toList());
     }
 
 }

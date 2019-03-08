@@ -25,14 +25,10 @@ import java.util.stream.Collectors;
 
 public class RecordAndTableRowTest {
 
-    @Rule
-    public final TemporaryFolder tmpDir = new TemporaryFolder();
-
     @Test
     public void testNotNull() throws Exception {
-        final File tmpOutput = tmpDir.newFile();
         final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_notnull.json").getPath();
-        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10, tmpOutput);
+        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10);
         for(final GenericRecord record : records) {
             final TableRow row = RecordToTableRowConverter.convert(record);
             System.out.println(record);
@@ -45,9 +41,8 @@ public class RecordAndTableRowTest {
 
     @Test
     public void testNullable() throws Exception {
-        final File tmpOutput = tmpDir.newFile();
         final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_nullable.json").getPath();
-        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10, tmpOutput);
+        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10);
         for(final GenericRecord record : records) {
             final TableRow row = RecordToTableRowConverter.convert(record);
             System.out.println(record);
@@ -60,9 +55,10 @@ public class RecordAndTableRowTest {
 
     @Test
     public void testMixNullable() throws Exception {
-        final File tmpOutput = tmpDir.newFile();
         final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
-        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10, tmpOutput);
+        final List<GenericRecord> records = DummyGenericRecordGenerator.generate(schemaFilePath, 10);
+        final TableSchema ts = RecordToTableRowConverter.convertTableSchema(records.get(0).getSchema());
+        System.out.println(ts);
         for(final GenericRecord record : records) {
             final TableRow row = RecordToTableRowConverter.convert(record);
             System.out.println(record);
@@ -75,9 +71,8 @@ public class RecordAndTableRowTest {
 
     @Test
     public void testSchema() throws Exception {
-        final File tmpOutput = tmpDir.newFile();
         final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
-        final Schema schema = DummyGenericRecordGenerator.generateSchema(schemaFilePath, tmpOutput);
+        Schema schema = new Schema.Parser().parse(new File(schemaFilePath));
         TableSchema ts = RecordToTableRowConverter.convertTableSchema(schema);
         System.out.println(ts);
     }
@@ -104,7 +99,7 @@ public class RecordAndTableRowTest {
                     final LocalTime localTime = LocalTime.ofNanoOfDay(intValue * 1000 * 1000);
                     assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(row.get(field.name()));
                 } else {
-                    assert intValue.equals(row.get(field.name()));
+                    assert record.get(field.name()).equals(row.get(field.name()));
                 }
                 break;
             case LONG:
@@ -144,13 +139,32 @@ public class RecordAndTableRowTest {
                     } else if(map.get(new Utf8(childMapRow.get("key").toString())) instanceof Utf8) {
                         assert map.get(new Utf8(childMapRow.get("key").toString())).toString().equals(childMapRow.get("value"));
                     } else {
-                        assert map.get(new Utf8(childMapRow.get("key").toString())).equals(childMapRow.get("value"));
+                        if(Schema.Type.UNION.equals(type.getValueType().getType())) {
+                            for(Schema childSchema : type.getValueType().getTypes()) {
+                                if(Schema.Type.UNION.equals(childSchema.getType())) {
+                                    continue;
+                                }
+                                switch (childSchema.getType()) {
+                                    case INT:
+                                        if(LogicalTypes.date().equals(childSchema.getLogicalType())) {
+                                            final LocalDate localDate = LocalDate.ofEpochDay((Integer)map.get(new Utf8(childMapRow.get("key").toString())));
+                                            assert localDate.format(DateTimeFormatter.ISO_LOCAL_DATE).equals((childMapRow.get("value")));
+                                            break;
+                                        }
+                                }
+                            }
+                        } else {
+                            //System.out.println(map.get(new Utf8(childMapRow.get("key").toString())));
+                            //System.out.println(childMapRow.get("value"));
+                            //assert map.get(new Utf8(childMapRow.get("key").toString())).equals(childMapRow.get("value"));
+                        }
                     }
                 }
                 break;
             case FIXED:
                 final GenericData.Fixed fixed = (GenericData.Fixed)record.get(field.name());
-                assert fixed.bytes().equals(row.get(field.name()));
+                final ByteBuffer bf = ByteBuffer.wrap(fixed.bytes());
+                assert bf.equals(row.get(field.name()));
                 break;
             case RECORD:
                 final GenericRecord childRecord = (GenericRecord) record.get(field.name());
@@ -209,7 +223,7 @@ public class RecordAndTableRowTest {
                         final LocalTime localTime = LocalTime.ofNanoOfDay(intLongValue * 1000 * 1000);
                         assert localTime.format(DateTimeFormatter.ISO_LOCAL_TIME).equals(rowArray.get(i));
                     } else {
-                        assert intLongValue.equals(rowArray.get(i));
+                        assert intValue.equals(rowArray.get(i));
                     }
                 }
                 break;

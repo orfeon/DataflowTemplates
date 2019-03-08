@@ -1,42 +1,34 @@
 package net.orfeon.cloud.dataflow.util;
 
+import com.google.common.hash.Hashing;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.tool.CreateRandomFileTool;
-import org.junit.Rule;
+import org.apache.avro.generic.*;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class DummyGenericRecordGenerator {
 
-    @Rule
-    public final TemporaryFolder tmpDir = new TemporaryFolder();
+    private static final Random random = new Random();
+    private static final int NULL_RATE = 20;
 
     @Test
     public void generateDummyAvroFile() throws Exception {
-        //
         final int count = 10;
-        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema.json").getPath();
+        final String schemaFilePath = ClassLoader.getSystemResource("avro/dummy_schema_mini.json").getPath();
         final String avroFilePath = "{output path}";
 
-        List<GenericRecord> records = generate(schemaFilePath, count, tmpDir.newFile());
-        final Schema schema = records.get(0).getSchema();
+        Schema schema = new Schema.Parser().parse(new File(schemaFilePath));
+        List<GenericRecord> records = IntStream.range(0, count).boxed().map(i -> generate(schema)).collect(Collectors.toList());
         try (DataFileWriter<Object> writer = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             writer.create(schema, new File(avroFilePath));
             records.stream().forEach(record -> {
@@ -49,221 +41,72 @@ public class DummyGenericRecordGenerator {
         }
     }
 
-    public static List<GenericRecord> generate(final String schemaFilePath, final int count, final File tmpOutput) throws Exception {
-        final List<String> args = new ArrayList<>();
-        args.add("--schema-file");
-        args.add(schemaFilePath);
-        args.add("--count");
-        args.add(Integer.toString(count));
-        args.add(tmpOutput.getPath());
-
-        new CreateRandomFileTool().run(null, System.out, System.err, args);
-
-        final DatumReader<GenericRecord> dataReader = new GenericDatumReader<>();
-        try(final DataFileReader<GenericRecord> recordReader = new DataFileReader<>(tmpOutput, dataReader)) {
-            final List<GenericRecord> records = new ArrayList<>();
-            while (recordReader.hasNext()) {
-                final GenericRecord record = recordReader.next();
-                for(final Schema.Field field : record.getSchema().getFields()) {
-                    modifyLogicalFieldValue(field, field.schema(), record);
-                }
-                records.add(record);
-            }
-            return records;
-        }
+    public static List<GenericRecord> generate(String schemaFilePath, int count) throws IOException {
+        Schema schema = new Schema.Parser().parse(new File(schemaFilePath));
+        return generate(schema, count);
     }
 
-    public static Schema generateSchema(final String schemaFilePath, final File tmpOutput) throws Exception {
-        final List<GenericRecord> records = generate(schemaFilePath, 1, tmpOutput);
-        return records.get(0).getSchema();
+    public static List<GenericRecord> generate(Schema schema, int count) {
+        return IntStream.range(0, count).boxed()
+                .map(i -> generate(schema))
+                .collect(Collectors.toList());
     }
 
-
-    private static void modifyLogicalFieldValue(final Schema.Field field, final Schema type, final GenericRecord record) {
-        if(record.get(field.name()) == null) {
-            return;
+    public static GenericRecord generate(Schema schema) {
+        final GenericRecordBuilder builder = new GenericRecordBuilder(schema);
+        for(final Schema.Field field : schema.getFields()) {
+            builder.set(field.name(), randomValue(field.schema()));
         }
-        switch (type.getType()) {
-            case INT:
-                if(LogicalTypes.date().equals(type.getLogicalType())) {
-                    record.put(field.name(), crop((Integer)record.get(field.name()), -719162, 0));
-                } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
-                    record.put(field.name(), crop((Integer)record.get(field.name()), 0, 86399999));
-                }
-                break;
-            case LONG:
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
-                    record.put(field.name(), crop((Long)record.get(field.name()), -719162L, 0L));
-                } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
-                    record.put(field.name(), crop((Long)record.get(field.name()), 0L, 86399999999L));
-                }
-                break;
-            case FIXED:
-                final int precisionFixed = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scaleFixed = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precisionFixed, scaleFixed).equals(type.getLogicalType())) {
-                    GenericData.Fixed fixed = (GenericData.Fixed)record.get(field.name());
-                    final byte[] bytes = fixed.bytes();
-                    if(bytes.length == 0) {
-                        BigDecimal bd = BigDecimal.valueOf(0, scaleFixed);
-                        //record.put(field.name(), new GenericData.Fixed(fixed.getSchema(), bd.toBigInteger().toByteArray()));
-                    } else if(new BigDecimal(new BigInteger(bytes), scaleFixed).precision() != precisionFixed) {
-                        final BigDecimal bd2 = generateBigDecimal(precisionFixed, scaleFixed);
-                        //record.put(field.name(), new GenericData.Fixed(fixed.getSchema(), bd2.toBigInteger().toByteArray()));
-                    }
-                }
-                break;
-            case BYTES:
-                final int precisionBytes = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scaleBytes = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precisionBytes, scaleBytes).equals(type.getLogicalType())) {
-                    final byte[] bytes = ((ByteBuffer)record.get(field.name())).array();
-                    if(bytes.length == 0) {
-                        record.put(field.name(), ByteBuffer.wrap(BigDecimal.valueOf(0, scaleBytes).toBigInteger().toByteArray()));
-                    } else if(new BigDecimal(new BigInteger(bytes), scaleBytes).precision() != precisionBytes) {
-                        final BigDecimal bd2 = generateBigDecimal(precisionBytes, scaleBytes);
-                        record.put(field.name(), ByteBuffer.wrap(bd2.toBigInteger().toByteArray()));
-                    }
-                }
-                break;
-            case UNION:
-                for(final Schema childSchema : type.getTypes()) {
-                    if (Schema.Type.NULL.equals(childSchema.getType())) {
-                        continue;
-                    }
-                    modifyLogicalFieldValue(field, childSchema, record);
-                }
-                break;
-            case RECORD:
-                final GenericRecord childRecord = (GenericRecord) record.get(field.name());
-                for(final Schema.Field childField : childRecord.getSchema().getFields()) {
-                    modifyLogicalFieldValue(childField, childField.schema(), childRecord);
-                }
-                break;
-            case ARRAY:
-                modifyLogicalArrayFieldValue(field, type.getElementType(), record);
-                break;
-            default:
-                break;
-        }
+        return builder.build();
     }
 
-    private static void modifyLogicalArrayFieldValue(final Schema.Field field, final Schema type, final GenericRecord record) {
-        Iterable values = ((Iterable)record.get(field.name()));
-        switch (type.getType()) {
-            case INT:
-                if(LogicalTypes.date().equals(type.getLogicalType())) {
-                    final List<Integer> is = new ArrayList<>();
-                    for(final Object o : values) {
-                        is.add(crop((Integer)o, -719162, 0));
-                    }
-                    record.put(field.name(), is);
-                } else if(LogicalTypes.timeMillis().equals(type.getLogicalType())) {
-                    final List<Integer> is = new ArrayList<>();
-                    for(final Object o : values) {
-                        is.add(crop((Integer)o, 0, 86399999));
-                    }
-                    record.put(field.name(), is);
-                }
-                break;
-            case LONG:
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
-                    final List<Long> is = new ArrayList<>();
-                    for(final Object o : values) {
-                        is.add(crop((Long)o, -719162L, 0L));
-                    }
-                    record.put(field.name(), is);
-                } else if(LogicalTypes.timeMicros().equals(type.getLogicalType())) {
-                    final List<Long> is = new ArrayList<>();
-                    for(final Object o : values) {
-                        is.add(crop((Long)o, 0L, 86399999999L));
-                    }
-                    record.put(field.name(), is);
-                }
-                break;
-            case FIXED:
-                final int precisionFixed = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scaleFixed = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precisionFixed, scaleFixed).equals(type.getLogicalType())) {
-                    final List<GenericData.Fixed> fixeds = new ArrayList<>();
-                    for(final Object value : values) {
-                        final GenericData.Fixed fixed = (GenericData.Fixed)value;
-                        final byte[] bytes = fixed.bytes();
-                        if(bytes.length == 0) {
-                            BigDecimal bf2 = generateBigDecimal(precisionFixed, scaleFixed);
-                            fixeds.add(new GenericData.Fixed(field.schema(), bf2.toBigInteger().toByteArray()));
-                            fixeds.add(fixed);
-                        } else if(new BigDecimal(new BigInteger(bytes), scaleFixed).precision() > precisionFixed) {
-                            BigDecimal bf2 = generateBigDecimal(precisionFixed, scaleFixed);
-                            fixeds.add(new GenericData.Fixed(field.schema(), bf2.toBigInteger().toByteArray()));
-                            fixeds.add(fixed);
-                        } else {
-                            fixeds.add(fixed);
-                        }
-                    }
-                    //record.put(field.name(), fixeds);
-                }
-                break;
-            case BYTES:
-                final int precisionBytes = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scaleBytes = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precisionBytes, scaleBytes).equals(type.getLogicalType())) {
-                    final List<ByteBuffer> buffers = new ArrayList<>();
-                    for(final Object o : values) {
-                        final byte[] bytes = ((ByteBuffer)o).array();
-                        if(bytes.length == 0) {
-                            BigDecimal bf2 = generateBigDecimal(precisionBytes, scaleBytes);
-                            buffers.add(ByteBuffer.wrap(bf2.toBigInteger().toByteArray()));
-                        } else if(new BigDecimal(new BigInteger(bytes), scaleBytes).precision() > precisionBytes) {
-                            BigDecimal bf2 = generateBigDecimal(precisionBytes, scaleBytes);
-                            buffers.add(ByteBuffer.wrap(bf2.toBigInteger().toByteArray()));
-                        } else {
-                            buffers.add(ByteBuffer.wrap(bytes));
-                        }
-                    }
-                    record.put(field.name(), buffers);
-                }
-                break;
-            case UNION:
-                for(final Schema childSchema : type.getTypes()) {
-                    if (Schema.Type.NULL.equals(childSchema.getType())) {
-                        continue;
-                    }
-                    modifyLogicalArrayFieldValue(field, childSchema, record);
-                }
-                break;
-            case RECORD:
-                for(final Object o : values) {
-                    final GenericRecord r = (GenericRecord) o;
-                    for(final Schema.Field childField : r.getSchema().getFields()) {
-                        modifyLogicalFieldValue(childField, childField.schema(), r);
-                    }
-                }
-                break;
-            case ARRAY:
-                break;
-            default:
-                break;
-        }
-
+    private static boolean randomNull(boolean isNullable, int randomRate) {
+        return isNullable && random.nextInt(100) < randomRate;
     }
 
-    private static <T extends Comparable> T crop(final T value, final T min, final T max) {
-        if(value == null) {
-            return value;
-        }
-        if(value.compareTo(min) > 0) {
-            return min;
-        }
-        if(value.compareTo(max) < 0) {
-            return max;
-        }
-        return value;
+    private static String randomString(boolean nullable) {
+        return Hashing.sha1().hashLong(random.nextLong()).toString();
     }
 
-    private static BigDecimal generateBigDecimal(int precision, int scale) {
+    private static List<String> randomStringArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomString(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static GenericData.Fixed randomFixed(boolean nullable, Schema schema) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
+        final byte[] randomBytes = Hashing.sha512().hashLong(random.nextLong()).asBytes();
+        //return ByteBuffer.wrap(randomBytes);
+        return new GenericData.Fixed(schema, randomBytes);
+    }
+
+    private static List<GenericData.Fixed> randomFixedArray(boolean nullable, Schema schema) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomFixed(nullable, schema))
+                .collect(Collectors.toList());
+    }
+
+    private static ByteBuffer randomBytes(boolean nullable) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
+        final byte[] randomBytes = Hashing.sha512().hashLong(random.nextLong()).asBytes();
+        return ByteBuffer.wrap(randomBytes);
+    }
+
+    private static List<ByteBuffer> randomBytesArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomBytes(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static ByteBuffer randomDecimal(boolean nullable, int precision, int scale) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
         StringBuilder sb = new StringBuilder();
         for(int i=precision; i>0; i--) {
             if(i == scale) {
@@ -271,6 +114,246 @@ public class DummyGenericRecordGenerator {
             }
             sb.append("1");
         }
-        return new BigDecimal(sb.toString());
+        BigDecimal decimal = new BigDecimal(sb.toString());
+        return ByteBuffer.wrap(decimal.toBigInteger().toByteArray());
     }
+
+    private static List<ByteBuffer> randomDecimalArray(boolean nullable, int precision, int scale) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomDecimal(nullable, precision, scale))
+                .collect(Collectors.toList());
+
+    }
+
+    private static GenericData.Fixed randomFixedDecimal(boolean nullable, int precision, int scale, Schema schema) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for(int i=precision; i>0; i--) {
+            if(i == scale) {
+                sb.append(".");
+            }
+            sb.append("1");
+        }
+        BigDecimal decimal = new BigDecimal(sb.toString());
+        return new GenericData.Fixed(schema, decimal.toBigInteger().toByteArray());
+    }
+
+    private static List<GenericData.Fixed> randomFixedDecimalArray(boolean nullable, int precision, int scale, Schema schema) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomFixedDecimal(nullable, precision, scale, schema))
+                .collect(Collectors.toList());
+    }
+
+    private static Integer randomDate(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextInt(365 * 10) + 365 * 30;
+    }
+
+    private static List<Integer> randomDateArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomDate(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Integer randomTimeMilliSecond(boolean nullable) {
+        int intValue = random.nextInt(86399999);
+        return randomNull(nullable, NULL_RATE) ? null : intValue;
+
+    }
+    private static List<Integer> randomTimeMilliSecondArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomTimeMilliSecond(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Long randomTimeMicroSecond(boolean nullable) {
+        long longValue = Math.abs(random.nextLong()) % 86400000000L;
+        return randomNull(nullable, NULL_RATE) ? null : longValue;
+    }
+    private static List<Long> randomTimeMicroSecondArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomTimeMicroSecond(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Long randomTimestampMicros(boolean nullable) {
+        long longValue = random.nextLong() % 86399999999L;
+        return randomNull(nullable, NULL_RATE) ? null : longValue;
+    }
+
+    private static List<Long> randomTimestampMicrosArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomTimestampMicros(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Long randomTimestampMillis(boolean nullable) {
+        long longValue = random.nextLong() % 86399999L;
+        return randomNull(nullable, NULL_RATE) ? null : longValue;
+    }
+    private static List<Long> randomTimestampMillisArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomTimestampMillis(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Integer randomInt(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextInt();
+    }
+    private static List<Integer> randomIntArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomInt(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Long randomLong(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextLong();
+    }
+    private static List<Long> randomLongArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomLong(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Float randomFloat(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextFloat();
+    }
+    private static List<Float> randomFloatArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomFloat(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Double randomDouble(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextDouble();
+    }
+    private static List<Double> randomDoubleArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomDouble(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static Boolean randomBoolean(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : random.nextBoolean();
+    }
+    private static List<Boolean> randomBooleanArray(boolean nullable) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomBoolean(nullable))
+                .collect(Collectors.toList());
+    }
+
+    private static GenericData.EnumSymbol randomEnum(boolean nullable, Schema schema) {
+
+        return randomNull(nullable, NULL_RATE) ? null : new GenericData.EnumSymbol(schema, schema.getEnumSymbols().get(random.nextInt(schema.getEnumSymbols().size())));
+    }
+    private static List<GenericData.EnumSymbol> randomEnumArray(boolean nullable, Schema schema) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomEnum(nullable, schema))
+                .collect(Collectors.toList());
+    }
+
+    private static Map<String, Object> randomMap(boolean nullable, Schema schema) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
+        Map<String, Object> map = new HashMap<>();
+        for(int i = 0; i < 4; i++) {
+            map.put(randomString(false), randomValue(schema));
+        }
+        return map;
+    }
+    private static List<Map<String,Object>> randomMapArray(boolean nullable, Schema schema) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomMap(nullable, schema))
+                .collect(Collectors.toList());
+    }
+
+    private static GenericRecord randomRecord(boolean nullable, Schema schema) {
+        if(randomNull(nullable, NULL_RATE)) {
+            return null;
+        }
+        final GenericRecordBuilder childBuilder = new GenericRecordBuilder(schema);
+        for(final Schema.Field childField : schema.getFields()) {
+            childBuilder.set(childField.name(), randomValue(childField.schema()));
+        }
+        return childBuilder.build();
+    }
+
+    private static List<GenericRecord> randomRecordArray(boolean nullable, Schema schema) {
+        return randomNull(nullable, NULL_RATE) ? null : IntStream.range(0, 4).boxed()
+                .map(i -> randomRecord(nullable, schema))
+                .collect(Collectors.toList());
+    }
+
+    private static Object randomValue(Schema schema) {
+        return randomValue(false, schema, false);
+    }
+
+    private static Object randomValue(boolean nullable, Schema schema, boolean isarray) {
+        switch (schema.getType()) {
+            case STRING:
+                return isarray ? randomStringArray(nullable) : randomString(nullable);
+            case FIXED:
+            case BYTES:
+                final Map<String,Object> props = schema.getObjectProps();
+                final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
+                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
+                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
+                    if(Schema.Type.FIXED.equals(schema.getType())) {
+                        return isarray ? randomFixedDecimalArray(nullable, precision, scale, schema) : randomFixedDecimal(nullable, precision, scale, schema);
+                    }
+                    return isarray ? randomDecimalArray(nullable, precision, scale) : randomDecimal(nullable, precision, scale);
+                }
+                if(Schema.Type.FIXED.equals(schema.getType())) {
+                    return isarray ? randomFixedArray(nullable, schema) : randomFixed(nullable, schema);
+                }
+                return isarray ? randomBytesArray(nullable) : randomBytes(nullable);
+            case INT:
+                if(LogicalTypes.date().equals(schema.getLogicalType())) {
+                    return isarray ? randomDateArray(nullable) : randomDate(nullable);
+                } else if(LogicalTypes.timeMillis().equals(schema.getLogicalType())) {
+                    return isarray ? randomTimeMilliSecondArray(nullable) : randomTimeMilliSecond(nullable);
+                } else {
+                    return isarray ? randomIntArray(nullable) : randomInt(nullable);
+                }
+            case LONG:
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())) {
+                    return isarray ? randomTimestampMillisArray(nullable) : randomTimestampMillis(nullable);
+                } else if(LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    return isarray ? randomTimestampMicrosArray(nullable) : randomTimestampMicros(nullable);
+                } else if(LogicalTypes.timeMicros().equals(schema.getLogicalType())) {
+                    return isarray ? randomTimeMicroSecondArray(nullable) : randomTimeMicroSecond(nullable);
+                } else {
+                    return isarray ? randomLongArray(nullable) : randomLong(nullable);
+                }
+            case FLOAT:
+                return isarray ? randomFloatArray(nullable) : randomFloat(nullable);
+            case DOUBLE:
+                return isarray ? randomDoubleArray(nullable) : randomDouble(nullable);
+            case BOOLEAN:
+                return isarray ? randomBooleanArray(nullable) : randomBoolean(nullable);
+            case RECORD:
+                return isarray ? randomRecordArray(nullable, schema) : randomRecord(nullable, schema);
+            case UNION:
+                for(final Schema childSchema : schema.getTypes()) {
+                    if(Schema.Type.NULL.equals(childSchema.getType())) {
+                        continue;
+                    }
+                    return randomValue(true, childSchema, isarray);
+                }
+                return null;
+            case ARRAY:
+                return randomValue(false, schema.getElementType(), true);
+            case NULL:
+                return null;
+            case ENUM:
+                return isarray ? randomEnumArray(nullable, schema.getElementType()) : randomEnum(nullable, schema);
+            case MAP:
+                return isarray ? randomMapArray(nullable, schema.getValueType()) : randomMap(nullable, schema.getValueType());
+            default:
+                return null;
+        }
+    }
+
 }
