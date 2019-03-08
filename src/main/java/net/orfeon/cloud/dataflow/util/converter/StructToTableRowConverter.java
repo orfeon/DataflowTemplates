@@ -1,34 +1,153 @@
 package net.orfeon.cloud.dataflow.util.converter;
 
+import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
-import net.orfeon.cloud.dataflow.util.StructUtil;
+import com.google.gson.Gson;
+import org.apache.beam.sdk.options.ValueProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class StructToTableRowConverter {
+
+    private static final Logger LOG = LoggerFactory.getLogger(StructToTableRowConverter.class);
 
     private StructToTableRowConverter() {
 
     }
 
     public static TableRow convert(final Struct struct) {
-        final TableRow row = new TableRow();
+        TableRow row = new TableRow();
         for (final Type.StructField field : struct.getType().getStructFields()) {
-            final String name = field.getName();
-            if ("f".equals(name)) {
+            final String fieldName = field.getName();
+            if ("f".equals(fieldName)) {
                 throw new IllegalArgumentException("Struct must not have field name f because `f` is reserved tablerow field name.");
             }
-            Object value = StructUtil.getFieldValue(field, struct);
-            if (value == null) {
-                continue;
-            }
-            if (Type.timestamp().equals(field.getType())) {
-                value = ((com.google.cloud.Timestamp) value).getSeconds();
-            } else if (Type.date().equals(field.getType())) {
-                value = value.toString();
-            }
-            row.set(name, value);
+            row = setFieldValue(row, fieldName, field.getType(), struct);
         }
         return row;
     }
+
+    public static Map<String,String> convertSchema(final ValueProvider<String> output, final Struct struct) {
+        final List<TableFieldSchema> structFields = struct.getType().getStructFields().stream()
+                .map(field -> getFieldTableSchema(field.getName(), field.getType(), struct))
+                .collect(Collectors.toList());
+        final String json = new Gson().toJson(new TableSchema().setFields(structFields));
+        LOG.info(String.format("Spanner Query Result Schema Json: %s", json));
+        final Map<String,String> map = new HashMap<>();
+        map.put(output.get(), json);
+        return map;
+    }
+
+    private static TableRow setFieldValue(TableRow row, final String fieldName, final Type type,final Struct struct) {
+        if(struct.isNull(fieldName)) {
+            return row.set(fieldName, null);
+        }
+        switch (type.getCode()) {
+            case STRING:
+                return row.set(fieldName, struct.getString(fieldName));
+            case BYTES:
+                return row.set(fieldName, struct.getBytes(fieldName));
+            case BOOL:
+                return row.set(fieldName, struct.getBoolean(fieldName));
+            case INT64:
+                return row.set(fieldName, struct.getLong(fieldName));
+            case FLOAT64:
+                return row.set(fieldName, struct.getDouble(fieldName));
+            case DATE:
+                return row.set(fieldName, struct.getDate(fieldName));
+            case TIMESTAMP:
+                return row.set(fieldName, struct.getTimestamp(fieldName).getSeconds());
+            case STRUCT:
+                final Struct childStruct = struct.getStruct(fieldName);
+                TableRow childRow = new TableRow();
+                for(Type.StructField field : childStruct.getType().getStructFields()) {
+                    childRow = setFieldValue(childRow, field.getName(), field.getType(), childStruct);
+                }
+                return row.set(fieldName, childRow);
+            case ARRAY:
+                LOG.info(type.getArrayElementType().toString());
+                return setArrayFieldValue(row, fieldName, type.getArrayElementType(), struct);
+            default:
+                return row;
+        }
+    }
+
+    private static TableRow setArrayFieldValue(TableRow row, final String fieldName, final Type type, final Struct struct) {
+        if (struct.isNull(fieldName)) {
+            return row.set(fieldName, null);
+        }
+        switch (type.getCode()) {
+            case STRING:
+                return row.set(fieldName, struct.getStringList(fieldName));
+            case BYTES:
+                return row.set(fieldName, struct.getBytesList(fieldName));
+            case BOOL:
+                return row.set(fieldName, struct.getBooleanList(fieldName));
+            case INT64:
+                return row.set(fieldName, struct.getLongList(fieldName));
+            case FLOAT64:
+                return row.set(fieldName, struct.getDoubleList(fieldName));
+            case DATE:
+                return row.set(fieldName, struct.getDateList(fieldName));
+            case TIMESTAMP:
+                final List<Long> timestampList = struct.getTimestampList(fieldName).stream()
+                        .map(timestamp -> timestamp.getSeconds())
+                        .collect(Collectors.toList());
+                return row.set(fieldName, timestampList);
+            case STRUCT:
+                final List<TableRow> childRows = new ArrayList<>();
+                for(Struct childStruct : struct.getStructList(fieldName)) {
+                    TableRow childRow = new TableRow();
+                    for(final Type.StructField field : childStruct.getType().getStructFields()) {
+                        childRow = setFieldValue(childRow, field.getName(), field.getType(), childStruct);
+                    }
+                    childRows.add(childRow);
+                }
+                return row.set(fieldName, childRows);
+            case ARRAY:
+                // Not support ARRAY in ARRAY
+                return row;
+            default:
+                return row;
+        }
+    }
+
+    private static TableFieldSchema getFieldTableSchema(final String fieldName, final Type type, final Struct struct) {
+        switch (type.getCode()) {
+            case STRING:
+                return new TableFieldSchema().setName(fieldName).setType("STRING").setMode("NULLABLE");
+            case BYTES:
+                return new TableFieldSchema().setName(fieldName).setType("BYTES").setMode("NULLABLE");
+            case BOOL:
+                return new TableFieldSchema().setName(fieldName).setType("BOOL").setMode("NULLABLE");
+            case INT64:
+                return new TableFieldSchema().setName(fieldName).setType("INT64").setMode("NULLABLE");
+            case FLOAT64:
+                return new TableFieldSchema().setName(fieldName).setType("FLOAT64").setMode("NULLABLE");
+            case DATE:
+                return new TableFieldSchema().setName(fieldName).setType("DATE").setMode("NULLABLE");
+            case TIMESTAMP:
+                return new TableFieldSchema().setName(fieldName).setType("TIMESTAMP").setMode("NULLABLE");
+            case STRUCT:
+                final Struct childStruct = struct.getStruct(fieldName);
+                final List<TableFieldSchema> childStructFields = childStruct.getType().getStructFields().stream()
+                        .map(field -> getFieldTableSchema(field.getName(), field.getType(), childStruct))
+                        .collect(Collectors.toList());
+                return new TableFieldSchema().setName(fieldName).setType("STRUCT").setFields(childStructFields).setMode("NULLABLE");
+            case ARRAY:
+                return getFieldTableSchema(fieldName, type.getArrayElementType(), struct).setMode("REPEATED");
+            default:
+                throw new IllegalArgumentException("");
+        }
+    }
+
 }

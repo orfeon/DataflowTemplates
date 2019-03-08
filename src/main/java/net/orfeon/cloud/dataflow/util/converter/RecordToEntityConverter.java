@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,7 +29,7 @@ public class RecordToEntityConverter {
     public static Entity convert(GenericRecord record, String kind, String keyField, int depth) {
         Entity.Builder builder = Entity.newBuilder();
         for(final Schema.Field field : record.getSchema().getFields()) {
-            builder = setFieldValue(builder, field, field.schema(), record, kind, keyField, depth);
+            builder = setFieldValue(builder, field.name(), field.schema(), record, kind, keyField, depth);
         }
 
         final String keyName;
@@ -53,223 +52,201 @@ public class RecordToEntityConverter {
         return convert(record.getRecord(), kind.get(), keyField.get(), 0);
     }
 
-
-    private static Entity.Builder setFieldValue(Entity.Builder builder, Schema.Field field, Schema type, GenericRecord record, String kind, String keyField, int depth) {
-        if(record.get(field.name()) == null) {
-            return builder.putProperties(field.name(), Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
+    private static Entity.Builder setFieldValue(Entity.Builder builder, String fieldName, Schema schema, GenericRecord record, String kind, String keyField, int depth) {
+        if(record.get(fieldName) == null) {
+            return builder.putProperties(fieldName, Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
         }
-        switch (type.getType()) {
+        switch (schema.getType()) {
             case STRING:
-                final String stringValue = record.get(field.name()).toString();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                final String stringValue = record.get(fieldName).toString();
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setStringValue(stringValue)
                         .setExcludeFromIndexes(stringValue.getBytes().length > MAX_STRING_SIZE_BYTES)
                         .build());
             case BYTES:
-                final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scale = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                final ByteBuffer bytes = (ByteBuffer)record.get(field.name());
-                if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
+                final int precision = schema.getObjectProp("precision") != null ? Integer.valueOf(schema.getObjectProp("precision").toString()) : 0;
+                final int scale = schema.getObjectProp("scale") != null ? Integer.valueOf(schema.getObjectProp("scale").toString()) : 0;
+                final ByteBuffer bytes = (ByteBuffer)record.get(fieldName);
+                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
                     final String strValue = convertNumericBytesToString(bytes.array(), scale);
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setStringValue(strValue)
                             .build());
                 }
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setBlobValue(ByteString.copyFrom(bytes))
                         .build());
             case ENUM:
-                return builder.putProperties(field.name(), Value.newBuilder()
-                        .setStringValue(record.get(field.name()).toString())
+                return builder.putProperties(fieldName, Value.newBuilder()
+                        .setStringValue(record.get(fieldName).toString())
                         .build());
             case INT:
-                final Long intvalue = new Long((Integer)record.get(field.name()));
-                if(LogicalTypes.date().equals(type.getLogicalType())) {
+                final Long intvalue = new Long((Integer)record.get(fieldName));
+                if(LogicalTypes.date().equals(schema.getLogicalType())) {
                     final LocalDate ld = LocalDate.ofEpochDay(intvalue);
                     final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setStringValue(date.toString())
                             .build());
                 }
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setIntegerValue(intvalue)
                         .build());
             case LONG:
-                final Long longvalue = (Long)record.get(field.name());
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
-                    final Long microseconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                final Long longvalue = (Long)record.get(fieldName);
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    final Long microseconds = schema.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setTimestampValue(Timestamps.fromMicros(microseconds))
                             .build());
                 }
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setIntegerValue(longvalue)
                         .build());
             case FLOAT:
             case DOUBLE:
-                return builder.putProperties(field.name(), Value.newBuilder()
-                        .setDoubleValue((Double)record.get(field.name()))
+                return builder.putProperties(fieldName, Value.newBuilder()
+                        .setDoubleValue((Double)record.get(fieldName))
                         .build());
             case BOOLEAN:
-                return builder.putProperties(field.name(), Value.newBuilder()
-                        .setBooleanValue((Boolean)record.get(field.name()))
+                return builder.putProperties(fieldName, Value.newBuilder()
+                        .setBooleanValue((Boolean)record.get(fieldName))
                         .build());
             case FIXED:
-                return builder.putProperties(field.name(), Value.newBuilder()
-                        .setStringValue(record.get(field.name()).toString())
+                return builder.putProperties(fieldName, Value.newBuilder()
+                        .setStringValue(record.get(fieldName).toString())
                         .build());
             case RECORD:
-                final Entity childEntity = convert((GenericRecord)record.get(field.name()), kind, keyField, depth + 1);
-                return builder.putProperties(field.name(), Value.newBuilder()
+                final Entity childEntity = convert((GenericRecord)record.get(fieldName), kind, keyField, depth + 1);
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setEntityValue(childEntity).build());
             case MAP:
                 return builder;
             case UNION:
-                for(final Schema childSchema : type.getTypes()) {
+                for(final Schema childSchema : schema.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return setFieldValue(builder, field, childSchema, record, kind, keyField, depth);
+                    return setFieldValue(builder, fieldName, childSchema, record, kind, keyField, depth);
                 }
                 return builder;
             case ARRAY:
-                return setArrayFieldValue(builder, field, type.getElementType(), record, kind, keyField, depth);
+                return setArrayFieldValue(builder, fieldName, schema.getElementType(), record, kind, keyField, depth);
             case NULL:
-                return builder.putProperties(field.name(), Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
+                return builder.putProperties(fieldName, Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
             default:
                 return builder;
         }
     }
 
-    private static Entity.Builder setArrayFieldValue(Entity.Builder builder, Schema.Field field, Schema type, GenericRecord record, String kind, String keyField, int depth) {
-        if(record.get(field.name()) == null) {
-            return builder.putProperties(field.name(), Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
+    private static Entity.Builder setArrayFieldValue(Entity.Builder builder, String fieldName, Schema schema, GenericRecord record, String kind, String keyField, int depth) {
+        if(record.get(fieldName) == null) {
+            return builder.putProperties(fieldName, Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
         }
-        switch (type.getType()) {
+        switch (schema.getType()) {
+            case ENUM:
             case STRING:
-                ArrayValue stringArray = ArrayValue.newBuilder().addAllValues(((List<Object>)record.get(field.name()))
-                        .stream()
+                final ArrayValue stringArray = ArrayValue.newBuilder().addAllValues(((List<Object>)record.get(fieldName)).stream()
                         .map(s -> Value.newBuilder().setStringValue(s.toString()).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(stringArray).build());
             case BYTES:
-                final int precision = type.getObjectProp("precision") != null ? Integer.valueOf(type.getObjectProp("precision").toString()) : 0;
-                final int scale = type.getObjectProp("scale") != null ? Integer.valueOf(type.getObjectProp("scale").toString()) : 0;
-                if(LogicalTypes.decimal(precision, scale).equals(type.getLogicalType())) {
-                    ArrayValue numericArray = ArrayValue.newBuilder().addAllValues(((List<ByteBuffer>)record.get(field.name()))
-                            .stream()
+                final int precision = schema.getObjectProp("precision") != null ? Integer.valueOf(schema.getObjectProp("precision").toString()) : 0;
+                final int scale = schema.getObjectProp("scale") != null ? Integer.valueOf(schema.getObjectProp("scale").toString()) : 0;
+                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
+                    final ArrayValue numericArray = ArrayValue.newBuilder().addAllValues(((List<ByteBuffer>)record.get(fieldName)).stream()
                             .map(bytes -> convertNumericBytesToString(bytes.array(), scale))
                             .map(str -> Value.newBuilder().setStringValue(str).build())
                             .collect(Collectors.toList())).build();
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setArrayValue(numericArray).build());
                 }
-                ArrayValue byteArray = ArrayValue.newBuilder().addAllValues(((List<ByteBuffer>)record.get(field.name()))
-                        .stream()
+                final ArrayValue byteArray = ArrayValue.newBuilder().addAllValues(((List<ByteBuffer>)record.get(fieldName)).stream()
                         .map(ByteString::copyFrom)
                         .map(bstr -> Value.newBuilder().setBlobValue(bstr).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(byteArray).build());
-            case ENUM:
-                ArrayValue enumArray = ArrayValue.newBuilder().addAllValues(((List<Object>)record.get(field.name()))
-                        .stream()
-                        .map(str -> Value.newBuilder().setStringValue(str.toString()).build())
-                        .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
-                        .setArrayValue(enumArray).build());
             case INT:
-                final List<Integer> intvalues =  ((List<Integer>) record.get(field.name()));
-                if(LogicalTypes.date().equals(type.getLogicalType())) {
-                    final List<Value> dateList = new ArrayList<>();
-                    for(final Integer days : intvalues) {
-                        if(days == null) {
-                            continue;
-                        }
-                        final LocalDate ld = LocalDate.ofEpochDay(days);
-                        final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
-                        dateList.add(Value.newBuilder().setStringValue(date.toString()).build());
-                    }
-                    ArrayValue dateArray = ArrayValue.newBuilder().addAllValues(dateList).build();
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                final List<Integer> intValues =  ((List<Integer>) record.get(fieldName));
+                if(LogicalTypes.date().equals(schema.getLogicalType())) {
+                    final List<Value> dateList = intValues.stream()
+                            .filter(days -> days != null)
+                            .map(days -> LocalDate.ofEpochDay(days))
+                            .map(localDate -> Date.fromYearMonthDay(localDate.getYear(), localDate.getMonth().getValue(), localDate.getDayOfMonth()))
+                            .map(date -> Value.newBuilder().setStringValue(date.toString()).build())
+                            .collect(Collectors.toList());
+                    final ArrayValue dateArray = ArrayValue.newBuilder().addAllValues(dateList).build();
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setArrayValue(dateArray).build());
                 } else {
-                    ArrayValue intArray = ArrayValue.newBuilder().addAllValues(intvalues
-                            .stream()
-                            .map(l -> Value.newBuilder().setIntegerValue(l).build())
+                    final ArrayValue intArray = ArrayValue.newBuilder().addAllValues(intValues.stream()
+                            .map(intValue -> Value.newBuilder().setIntegerValue(intValue).build())
                             .collect(Collectors.toList())).build();
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setArrayValue(intArray).build());
                 }
             case LONG:
-                final List<Long> longvalues = (List<Long>)record.get(field.name());
-                if(LogicalTypes.timestampMillis().equals(type.getLogicalType())
-                        || LogicalTypes.timestampMicros().equals(type.getLogicalType())) {
-                    final List<Value> timestampList = new ArrayList<>();
-                    for(final Long longvalue : longvalues) {
-                        if(longvalue == null) {
-                            continue;
-                        }
-                        final Long microseconds = type.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
-                        timestampList.add(Value.newBuilder().setTimestampValue(Timestamps.fromMicros(microseconds)).build());
-                    }
-                    ArrayValue longArray = ArrayValue.newBuilder().addAllValues(timestampList).build();
-                    return builder.putProperties(field.name(), Value.newBuilder()
-                            .setArrayValue(longArray).build());
+                final List<Long> longValues = (List<Long>)record.get(fieldName);
+                if(LogicalTypes.timestampMillis().equals(schema.getLogicalType())
+                        || LogicalTypes.timestampMicros().equals(schema.getLogicalType())) {
+                    final List<Value> timestampList = longValues.stream()
+                            .filter(longValue -> longValue != null)
+                            .map(longValue -> schema.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longValue : longValue * 1000)
+                            .map(microSeconds -> Value.newBuilder().setTimestampValue(Timestamps.fromMicros(microSeconds)).build())
+                            .collect(Collectors.toList());
+                    final ArrayValue timestampArray = ArrayValue.newBuilder().addAllValues(timestampList).build();
+                    return builder.putProperties(fieldName, Value.newBuilder()
+                            .setArrayValue(timestampArray).build());
                 } else {
-                    ArrayValue longArray = ArrayValue.newBuilder().addAllValues(longvalues
-                            .stream()
-                            .map(l -> Value.newBuilder().setIntegerValue(l).build())
+                    final ArrayValue longArray = ArrayValue.newBuilder().addAllValues(longValues.stream()
+                            .map(longValue -> Value.newBuilder().setIntegerValue(longValue).build())
                             .collect(Collectors.toList())).build();
-                    return builder.putProperties(field.name(), Value.newBuilder()
+                    return builder.putProperties(fieldName, Value.newBuilder()
                             .setArrayValue(longArray).build());
                 }
             case FLOAT:
             case DOUBLE:
-                ArrayValue doubleArray = ArrayValue.newBuilder().addAllValues(((List<Double>)record.get(field.name()))
-                        .stream()
-                        .map(f -> Value.newBuilder().setDoubleValue(f).build())
+                final ArrayValue doubleArray = ArrayValue.newBuilder().addAllValues(((List<Double>)record.get(fieldName)).stream()
+                        .map(floatValue -> Value.newBuilder().setDoubleValue(floatValue).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(doubleArray).build());
             case BOOLEAN:
-                ArrayValue booleanArray = ArrayValue.newBuilder().addAllValues(((List<Boolean>)record.get(field.name()))
-                        .stream()
+                final ArrayValue booleanArray = ArrayValue.newBuilder().addAllValues(((List<Boolean>)record.get(fieldName)).stream()
                         .map(bool -> Value.newBuilder().setBooleanValue(bool).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(booleanArray).build());
             case FIXED:
-                ArrayValue fixedArray = ArrayValue.newBuilder().addAllValues(((List<Object>)record.get(field.name()))
-                        .stream()
-                        .map(s -> Value.newBuilder().setStringValue(s.toString()).build())
+                final ArrayValue fixedArray = ArrayValue.newBuilder().addAllValues(((List<Object>)record.get(fieldName)).stream()
+                        .map(fixed -> Value.newBuilder().setStringValue(fixed.toString()).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(fixedArray).build());
             case RECORD:
-                ArrayValue entityArray = ArrayValue.newBuilder().addAllValues(((List<GenericRecord>)record.get(field.name()))
-                        .stream()
-                        .map(e -> Value.newBuilder().setEntityValue(convert(e, kind, keyField, depth + 1)).build())
+                final ArrayValue entityArray = ArrayValue.newBuilder().addAllValues(((List<GenericRecord>)record.get(fieldName)).stream()
+                        .map(childRecord -> Value.newBuilder().setEntityValue(convert(childRecord, kind, keyField, depth + 1)).build())
                         .collect(Collectors.toList())).build();
-                return builder.putProperties(field.name(), Value.newBuilder()
+                return builder.putProperties(fieldName, Value.newBuilder()
                         .setArrayValue(entityArray).build());
             case MAP:
                 return builder;
             case UNION:
-                for(final Schema childSchema : type.getTypes()) {
+                for(final Schema childSchema : schema.getTypes()) {
                     if (Schema.Type.NULL.equals(childSchema.getType())) {
                         continue;
                     }
-                    return setArrayFieldValue(builder, field, childSchema, record, kind, keyField, depth);
+                    return setArrayFieldValue(builder, fieldName, childSchema, record, kind, keyField, depth);
                 }
                 return builder;
             case ARRAY:
                 // BigQuery does not support nested array.
                 return builder;
             case NULL:
-                return builder.putProperties(field.name(), Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
+                return builder.putProperties(fieldName, Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
             default:
                 return builder;
         }

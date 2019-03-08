@@ -18,60 +18,60 @@ public class StructToMutationConverter {
             final boolean isNullField = struct.isNull(fieldName);
             switch(field.getType().getCode()) {
                 case STRING:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getString(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getString(fieldName));
                     break;
                 case BYTES:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getBytes(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getBytes(fieldName));
                     break;
                 case BOOL:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getBoolean(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getBoolean(fieldName));
                     break;
                 case INT64:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getLong(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getLong(fieldName));
                     break;
                 case FLOAT64:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getDouble(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getDouble(fieldName));
                     break;
                 case DATE:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getDate(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getDate(fieldName));
                     break;
                 case TIMESTAMP:
-                    builder = builder.set(field.getName()).to(isNullField ? null : struct.getTimestamp(fieldName));
+                    builder = builder.set(fieldName).to(isNullField ? null : struct.getTimestamp(fieldName));
                     break;
                 case STRUCT:
                     // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2019/03/04)
                     // https://cloud.google.com/spanner/docs/data-types
-                    //builder = builder.set(field.getName()).to(isNullField ? null : struct.getStruct(fieldName));
                     break;
                 case ARRAY:
                     switch (field.getType().getArrayElementType().getCode()) {
                         case STRING:
-                            builder = builder.set(field.getName()).toStringArray(isNullField ? null : struct.getStringList(fieldName));
+                            builder = builder.set(fieldName).toStringArray(isNullField ? null : struct.getStringList(fieldName));
                             break;
                         case BYTES:
-                            builder = builder.set(field.getName()).toBytesArray(isNullField ? null : struct.getBytesList(fieldName));
+                            builder = builder.set(fieldName).toBytesArray(isNullField ? null : struct.getBytesList(fieldName));
                             break;
                         case BOOL:
-                            builder = builder.set(field.getName()).toBoolArray(isNullField ? null : struct.getBooleanArray(fieldName));
+                            builder = builder.set(fieldName).toBoolArray(isNullField ? null : struct.getBooleanArray(fieldName));
                             break;
                         case INT64:
-                            builder = builder.set(field.getName()).toInt64Array(isNullField ? null : struct.getLongArray(fieldName));
+                            builder = builder.set(fieldName).toInt64Array(isNullField ? null : struct.getLongArray(fieldName));
                             break;
                         case FLOAT64:
-                            builder = builder.set(field.getName()).toFloat64Array(isNullField ? null : struct.getDoubleArray(fieldName));
+                            builder = builder.set(fieldName).toFloat64Array(isNullField ? null : struct.getDoubleArray(fieldName));
                             break;
                         case DATE:
-                            builder = builder.set(field.getName()).toDateArray(isNullField ? null : struct.getDateList(fieldName));
+                            builder = builder.set(fieldName).toDateArray(isNullField ? null : struct.getDateList(fieldName));
                             break;
                         case TIMESTAMP:
-                            builder = builder.set(field.getName()).toTimestampArray(isNullField ? null : struct.getTimestampList(fieldName));
+                            builder = builder.set(fieldName).toTimestampArray(isNullField ? null : struct.getTimestampList(fieldName));
                             break;
                         case STRUCT:
                             // NOT SUPPOERTED TO STORE STRUCT AS FIELD! (2019/03/04)
-                            //builder = binder.toStructArray(isNullField ? null : struct.getStructList(fieldName));
+                            // https://cloud.google.com/spanner/docs/data-types
                             break;
                         case ARRAY:
                             // NOT SUPPOERTED TO STORE ARRAY IN ARRAY FIELD! (2019/03/04)
+                            // https://cloud.google.com/spanner/docs/data-types
                             break;
                     }
 
