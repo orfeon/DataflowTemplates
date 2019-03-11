@@ -61,7 +61,8 @@ public class RecordToEntityConverter {
                 final String stringValue = record.get(fieldName).toString();
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setStringValue(stringValue)
-                        .setExcludeFromIndexes(stringValue.getBytes().length > MAX_STRING_SIZE_BYTES)
+                        .setExcludeFromIndexes(true)
+                        //.setExcludeFromIndexes(stringValue.getBytes().length > MAX_STRING_SIZE_BYTES)
                         .build());
             case BYTES:
                 final int precision = schema.getObjectProp("precision") != null ? Integer.valueOf(schema.getObjectProp("precision").toString()) : 0;
@@ -71,14 +72,17 @@ public class RecordToEntityConverter {
                     final String strValue = convertNumericBytesToString(bytes.array(), scale);
                     return builder.putProperties(fieldName, Value.newBuilder()
                             .setStringValue(strValue)
+                            .setExcludeFromIndexes(true)
                             .build());
                 }
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setBlobValue(ByteString.copyFrom(bytes))
+                        .setExcludeFromIndexes(true)
                         .build());
             case ENUM:
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setStringValue(record.get(fieldName).toString())
+                        .setExcludeFromIndexes(true)
                         .build());
             case INT:
                 final Long intvalue = new Long((Integer)record.get(fieldName));
@@ -87,6 +91,7 @@ public class RecordToEntityConverter {
                     final Date date = Date.fromYearMonthDay(ld.getYear(), ld.getMonth().getValue(), ld.getDayOfMonth());
                     return builder.putProperties(fieldName, Value.newBuilder()
                             .setStringValue(date.toString())
+                            .setExcludeFromIndexes(true)
                             .build());
                 }
                 return builder.putProperties(fieldName, Value.newBuilder()
@@ -99,28 +104,35 @@ public class RecordToEntityConverter {
                     final Long microseconds = schema.getLogicalType().equals(LogicalTypes.timestampMicros()) ? longvalue : longvalue * 1000;
                     return builder.putProperties(fieldName, Value.newBuilder()
                             .setTimestampValue(Timestamps.fromMicros(microseconds))
+                            .setExcludeFromIndexes(true)
                             .build());
                 }
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setIntegerValue(longvalue)
+                        .setExcludeFromIndexes(true)
                         .build());
             case FLOAT:
             case DOUBLE:
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setDoubleValue((Double)record.get(fieldName))
+                        .setExcludeFromIndexes(true)
                         .build());
             case BOOLEAN:
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setBooleanValue((Boolean)record.get(fieldName))
+                        .setExcludeFromIndexes(true)
                         .build());
             case FIXED:
                 return builder.putProperties(fieldName, Value.newBuilder()
                         .setStringValue(record.get(fieldName).toString())
+                        .setExcludeFromIndexes(true)
                         .build());
             case RECORD:
                 final Entity childEntity = convert((GenericRecord)record.get(fieldName), kind, keyField, depth + 1);
                 return builder.putProperties(fieldName, Value.newBuilder()
-                        .setEntityValue(childEntity).build());
+                        .setEntityValue(childEntity)
+                        .setExcludeFromIndexes(true)
+                        .build());
             case MAP:
                 return builder;
             case UNION:
@@ -176,7 +188,7 @@ public class RecordToEntityConverter {
                             .filter(days -> days != null)
                             .map(days -> LocalDate.ofEpochDay(days))
                             .map(localDate -> Date.fromYearMonthDay(localDate.getYear(), localDate.getMonth().getValue(), localDate.getDayOfMonth()))
-                            .map(date -> Value.newBuilder().setStringValue(date.toString()).build())
+                            .map(date -> Value.newBuilder().setStringValue(date.toString()).setExcludeFromIndexes(true).build())
                             .collect(Collectors.toList());
                     final ArrayValue dateArray = ArrayValue.newBuilder().addAllValues(dateList).build();
                     return builder.putProperties(fieldName, Value.newBuilder()
