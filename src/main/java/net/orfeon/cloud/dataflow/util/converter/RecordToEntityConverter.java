@@ -5,6 +5,7 @@ import com.google.datastore.v1.*;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.NullValue;
 import com.google.protobuf.util.Timestamps;
+import net.orfeon.cloud.dataflow.util.AvroSchemaUtil;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -23,6 +24,8 @@ import java.util.stream.Collectors;
 public class RecordToEntityConverter {
 
     private static final int MAX_STRING_SIZE_BYTES = 1500;
+    private static String kind = null;
+    private static String keyField = null;
 
     private static final Logger LOG = LoggerFactory.getLogger(RecordToEntityConverter.class);
 
@@ -48,8 +51,56 @@ public class RecordToEntityConverter {
         }
     }
 
-    public static Entity convert(SchemaAndRecord record, ValueProvider<String> kind, ValueProvider<String> keyField) {
-        return convert(record.getRecord(), kind.get(), keyField.get(), 0);
+    public static Entity convert(GenericRecord record, String kind, String keyField) {
+        return convert(record, kind, keyField, 0);
+    }
+
+    public static Entity convert(SchemaAndRecord record, ValueProvider<String> kindVP, ValueProvider<String> keyFieldVP) {
+        return convert(record.getRecord(), kindVP, keyFieldVP);
+    }
+
+    public static Entity convert(GenericRecord record, ValueProvider<String> kindVP, ValueProvider<String> keyFieldVP) {
+        if(kind == null) {
+            kind = kindVP.get();
+        }
+        if(keyField == null) {
+            keyField = keyFieldVP.get();
+        }
+        return convert(record, kind, keyField, 0);
+    }
+
+    private static Value convertEntityValue(String fieldName, Schema schema, GenericRecord record) {
+        if(record.get(fieldName) == null) {
+            return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
+        }
+        switch (schema.getType()) {
+            case STRING: Value.newBuilder()
+                    .setStringValue(record.get(fieldName).toString())
+                    .setExcludeFromIndexes(true)
+                    //.setExcludeFromIndexes(stringValue.getBytes().length > MAX_STRING_SIZE_BYTES)
+                    .build();
+            case BYTES:
+                final ByteBuffer bytes = (ByteBuffer)record.get(fieldName);
+                if(AvroSchemaUtil.isLogicalTypeDecimal(schema)) {
+                    LogicalTypes.Decimal decimal = AvroSchemaUtil.getLogicalTypeDecimal(schema);
+                    final String strValue = convertNumericBytesToString(bytes.array(), decimal.getScale());
+                    return Value.newBuilder()
+                            .setStringValue(strValue)
+                            .setExcludeFromIndexes(true)
+                            .build();
+                }
+                return Value.newBuilder()
+                        .setBlobValue(ByteString.copyFrom(bytes))
+                        .setExcludeFromIndexes(true)
+                        .build();
+            case ENUM:
+                return Value.newBuilder()
+                        .setStringValue(record.get(fieldName).toString())
+                        .setExcludeFromIndexes(true)
+                        .build();
+            default:
+                return null;
+        }
     }
 
     private static Entity.Builder setFieldValue(Entity.Builder builder, String fieldName, Schema schema, GenericRecord record, String kind, String keyField, int depth) {
