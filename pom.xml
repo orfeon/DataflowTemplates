@@ -27,7 +27,7 @@
   <packaging>jar</packaging>
 
   <properties>
-    <beam.version>2.10.0</beam.version>
+    <beam.version>2.11.0</beam.version>
 
     <bigquery.version>v2-rev20181104-1.27.0</bigquery.version>
     <google-clients.version>1.27.0</google-clients.version>
@@ -223,7 +223,6 @@
           <groupId>org.apache.beam</groupId>
           <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
           <version>${beam.version}</version>
-          <scope>runtime</scope>
         </dependency>
       </dependencies>
     </profile>
@@ -451,13 +450,6 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.apache.avro</groupId>
-      <artifactId>avro-tools</artifactId>
-      <version>1.8.2</version>
-      <scope>test</scope>
-    </dependency>
-
     <!-- custom import -->
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
     <dependency>
@@ -470,27 +462,27 @@
     <dependency>
       <groupId>com.google.api.grpc</groupId>
       <artifactId>grpc-google-common-protos</artifactId>
-      <version>1.12.0</version>
+      <version>1.14.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-bigquery -->
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-bigquery</artifactId>
-      <version>1.52.0</version>
+      <version>1.64.0</version>
     </dependency>
 
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <version>1.52.0</version>
+      <version>1.64.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-core -->
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-core</artifactId>
-      <version>1.52.0</version>
+      <version>1.64.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-bigquery -->
@@ -504,14 +496,14 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-spanner</artifactId>
-      <version>0.67.0-beta</version>
+      <version>1.9.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-kms -->
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-kms</artifactId>
-      <version>0.74.0-beta</version>
+      <version>1.0.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
@@ -557,6 +549,13 @@
       <artifactId>opencensus-exporter-trace-stackdriver</artifactId>
       <version>${opencensus.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
+      <version>${beam.version}</version>
+    </dependency>
+
 
   </dependencies>
 </project>
