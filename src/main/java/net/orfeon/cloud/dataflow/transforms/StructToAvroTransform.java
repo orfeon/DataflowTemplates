@@ -1,6 +1,7 @@
 package net.orfeon.cloud.dataflow.transforms;
 
 import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.util.AvroSchemaUtil;
 import net.orfeon.cloud.dataflow.util.StructUtil;
 import net.orfeon.cloud.dataflow.util.converter.StructToRecordConverter;
 import org.apache.avro.Schema;
@@ -12,15 +13,19 @@ import org.apache.beam.sdk.io.WriteFilesResult;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 
-public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone> {
+public class StructToAvroTransform extends PTransform<PCollection<Struct>, WriteFilesResult<String>> {
 
     private static final String DEFAULT_KEY = "__KEY__";
+
+    private static final Logger LOG = LoggerFactory.getLogger(StructToAvroTransform.class);
 
     public static final TupleTag<KV<String,Struct>> tagMain = new TupleTag<KV<String,Struct>>(){ private static final long serialVersionUID = 1L; };
     public static final TupleTag<KV<String,Struct>> tagStruct = new TupleTag<KV<String,Struct>>(){ private static final long serialVersionUID = 1L; };
@@ -35,7 +40,7 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
         this.useSnappy = useSnappy;
     }
 
-    public final PDone expand(PCollection<Struct> input) {
+    public final WriteFilesResult<String> expand(PCollection<Struct> input) {
 
         PCollectionTuple records = input.apply("AddGroupingKey", ParDo.of(new DoFn<Struct, KV<String, Struct>>() {
 
@@ -58,16 +63,17 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                     c.output(tagStruct, kv);
                     this.check.add(key);
                 }
-
             }
 
         }).withOutputTags(tagMain, TupleTagList.of(tagStruct)));
 
+        PTransform<PCollection<KV<String,Struct>>, PCollection<KV<String,Iterable<Struct>>>> a = Sample.fixedSizePerKey(1);
+
         PCollectionView<Map<String, Iterable<Struct>>> schemaView = records.get(tagStruct)
-                .apply("SampleStructPerKey", Sample.fixedSizePerKey(1))
+                .apply("SampleStructPerKey", a)
                 .apply("ViewAsMap", View.asMap());
 
-        WriteFilesResult<String> writeFilesResult = records.get(tagMain)
+        return records.get(tagMain)
                 .apply("WriteStructDynamically", FileIO.<String, KV<String, Struct>>writeDynamic()
                         .by(Contextful.fn((element) -> element.getKey()))
                         .via(Contextful.fn((key, c) -> {
@@ -76,7 +82,7 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                                 throw new IllegalArgumentException(String.format("No matched struct to key %s !", key));
                             }
                             final Struct struct = sampleStruct.get(key).iterator().next();
-                            final Schema schema = StructToRecordConverter.convertSchema(struct);
+                            final Schema schema = AvroSchemaUtil.convertSchema(struct);
                             final AvroIO.Sink<KV<String,Struct>> avroSink = AvroIO
                                     .sinkViaGenericRecords(schema,
                                             (KV<String, Struct> rstruct, Schema rschema) ->
@@ -90,8 +96,6 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, PDone
                                 buildPrefixFileName(this.output.get(), key), ".avro"))
                         .to(ValueProvider.NestedValueProvider.of(this.output, s -> buildPrefixDirName(s)))
                         .withDestinationCoder(StringUtf8Coder.of()));
-
-        return PDone.in(writeFilesResult.getPipeline());
     }
 
     private static String buildPrefixDirName(String output) {

@@ -34,6 +34,19 @@
     "is_optional": true
   },
   {
+    "name": "notifyFinishGCS",
+    "label": "GCS path to notify job finished.",
+    "help_text": "Empty file will be created at this path when job finished successfully.",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+    "is_optional": true
+  },
+  {
+    "name": "outputEmptyFile",
+    "label": "Output empty file even when no query results.",
+    "help_text": "If set true, empty file will be created at the output path with suffix '-empty' when no query results.",
+    "is_optional": true
+  },
+  {
     "name": "useSnappy",
     "label": "useSnappy",
     "help_text": "Use snappy as avro coder or not.(true or false)",
