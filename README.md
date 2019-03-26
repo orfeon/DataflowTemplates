@@ -11,8 +11,9 @@ This templates target use cases that official templates do not cover.
 * [Spanner to BigQuery](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToBigQuery.java)
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 * [Spanner Bulk Delete](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpannerDelete.java)
-* [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
+* [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
+* [GCS Avro to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToDatastore.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
 * [Dummy to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/DummyToSpanner.java)
 * [Spanner to BigQueryML to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/ml/bigquery/SpannerToBQMLToSpanner.java)
@@ -176,6 +177,19 @@ Template parameters are same as SpannerToText.
 | databaseId      | String | Spanner databaseID you will recover.             |
 | table           | String | Spanner table name to insert records.            |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+
+
+### AvroToDatastore
+
+AvroToDatastore inserts avro files on GCS to Cloud Datastore.
+
+| Parameter              | Type   | Description                                      |
+|------------------------|--------|--------------------------------------------------|
+| input                  | String | GCS path for avro files. prefix must start with gs:// |
+| projectId              | String | GCP Project ID for Datastore to insert.          |
+| kind                   | String | Datastore kind name to insert.                   |
+| keyField               | String | Unique key field name in avro record.            |
+| excludeFromIndexFields | String | (Optional) Field names to exclude from index.    |
 
 
 ### BigQueryToSpanner
