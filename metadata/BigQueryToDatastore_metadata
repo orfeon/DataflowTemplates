@@ -1,6 +1,6 @@
 {
-  "name": "BigQueryToSpanner",
-  "description": "Pipeline to insert records to Spanner table from BigQuery query results.",
+  "name": "BigQueryToDatastore",
+  "description": "Pipeline to insert records to Datastore from BigQuery query results.",
   "parameters": [
   {
     "name": "query",
@@ -9,8 +9,8 @@
   },
   {
     "name": "projectId",
-    "label": "Project ID to write Datastore (Google Cloud Project ID)",
-    "help_text": "Project ID that datastore is belong to."
+    "label": "GCP Project ID to write Datastore",
+    "help_text": "Project ID to write Datastore (Google Cloud Project ID)"
   },
   {
     "name": "kind",
@@ -21,6 +21,12 @@
     "name": "keyField",
     "label": "Unique field name in query results from BigQuery.",
     "help_text": "This field value will be used as datastore entity key name."
+  },
+  {
+    "name": "excludeFromIndexFields",
+    "label": "Field names to exclude from index.",
+    "help_text": "This fields will be excluded from Datastore index.",
+    "is_optional": true
   }
   ]
 }
