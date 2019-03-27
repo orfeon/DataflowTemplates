@@ -37,5 +37,18 @@
     "name": "mutationOp",
     "label": "Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE`",
     "help_text": "Detail: https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html"
-  }]
+  },
+  {
+    "name": "primaryKeyFields",
+    "label": "Key field on destination Spanner table. (Required table auto generation)",
+    "help_text": "If destination Spanner table not exists, template will create the table using this field as key.",
+    "is_optional": true
+  },
+  {
+    "name": "parallelNum",
+    "label": "Parallel read num to request BigQuery Storage API.",
+    "help_text": "Default is 0 (auto decision).",
+    "is_optional": true
+  }
+  ]
 }

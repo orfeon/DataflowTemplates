@@ -27,6 +27,12 @@
     "label": "Field names to exclude from index.",
     "help_text": "This fields will be excluded from Datastore index.",
     "is_optional": true
+  },
+  {
+    "name": "parallelNum",
+    "label": "Parallel read num to request BigQuery Storage API.",
+    "help_text": "Default is 0 (auto decision).",
+    "is_optional": true
   }
   ]
 }

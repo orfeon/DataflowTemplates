@@ -207,6 +207,7 @@ Spanner destination table will be created if not exists.
 | table           | String | Spanner table name you will write query result.    |
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
+| primaryKeyFields| String | (Optional) Key field on destination Spanner table. (Required if use table auto generation) |
 
 * You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
 * At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
