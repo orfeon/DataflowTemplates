@@ -46,7 +46,7 @@ public class SpannerTablePrepareDoFn extends DoFn<String, Struct> {
         }
 
         final Schema schema = new Schema.Parser().parse(c.element());
-        LOG.error(c.element());
+        LOG.info(c.element());
         final String createTableSQL = buildCreateTableSQL(schema);
         final OperationFuture<Void, UpdateDatabaseDdlMetadata> meta = spanner.getDatabaseAdminClient()
                 .updateDatabaseDdl(this.instanceId.get(), this.databaseId.get(), Arrays.asList(createTableSQL), null);
@@ -63,12 +63,16 @@ public class SpannerTablePrepareDoFn extends DoFn<String, Struct> {
     }
 
     private String buildCreateTableSQL(final Schema schema) {
+        final String keyFields = this.primaryKeyFields.get();
+        if(keyFields == null) {
+            throw new IllegalArgumentException("Runtime parameter: primaryKeyFields must not be null!");
+        }
         final StringBuilder sb = new StringBuilder(String.format("CREATE TABLE %s ( ", table.get()));
         schema.getFields().stream()
                 .filter(f -> isValidColumnType(f.schema()))
                 .forEach(f -> sb.append(String.format("%s %s,", f.name(), getColumnType(f.schema()))));
         sb.deleteCharAt(sb.length() - 1);
-        sb.append(String.format(") PRIMARY KEY ( %s )", this.primaryKeyFields.get()));
+        sb.append(String.format(") PRIMARY KEY ( %s )", keyFields));
         return sb.toString();
     }
 
