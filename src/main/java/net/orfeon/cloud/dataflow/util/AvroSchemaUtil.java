@@ -88,6 +88,10 @@ public class AvroSchemaUtil {
     }
 
     public static boolean isLogicalTypeDecimal(Schema schema) {
+        if(schema.getType().equals(Schema.Type.UNION)) {
+            Schema childSchema = unnestUnion(schema);
+            return isLogicalTypeDecimal(childSchema);
+        }
         final int precision = schema.getObjectProp("precision") != null ?
                 Integer.valueOf(schema.getObjectProp("precision").toString()) : 0;
         final int scale = schema.getObjectProp("scale") != null ?
@@ -96,21 +100,43 @@ public class AvroSchemaUtil {
     }
 
     public static boolean isSqlTypeDatetime(Schema schema) {
+        if(schema.getType().equals(Schema.Type.UNION)) {
+            Schema childSchema = unnestUnion(schema);
+            return isSqlTypeDatetime(childSchema);
+        }
         final String sqlType = schema.getProp("sqlType");
         return "DATETIME".equals(sqlType);
     }
 
     public static boolean isSqlTypeGeography(Schema schema) {
+        if(schema.getType().equals(Schema.Type.UNION)) {
+            Schema childSchema = unnestUnion(schema);
+            return isSqlTypeGeography(childSchema);
+        }
         final String sqlType = schema.getProp("sqlType");
         return "GEOGRAPHY".equals(sqlType);
     }
 
     public static LogicalTypes.Decimal getLogicalTypeDecimal(Schema schema) {
+        if(schema.getType().equals(Schema.Type.UNION)) {
+            Schema childSchema = unnestUnion(schema);
+            return getLogicalTypeDecimal(childSchema);
+        }
         final int precision = schema.getObjectProp("precision") != null ?
                 Integer.valueOf(schema.getObjectProp("precision").toString()) : 0;
         final int scale = schema.getObjectProp("scale") != null ?
                 Integer.valueOf(schema.getObjectProp("scale").toString()) : 0;
         return LogicalTypes.decimal(precision, scale);
+    }
+
+    private static Schema unnestUnion(Schema schema) {
+        if(schema.getType().equals(Schema.Type.UNION)) {
+            return schema.getTypes().stream()
+                    .filter(s -> !s.getType().equals(Schema.Type.NULL))
+                    .findAny()
+                    .orElseThrow(() -> new IllegalArgumentException("UNION does not have another schema."));
+        }
+        return schema;
     }
 
     private static Schema convertSchema(final TableFieldSchema fieldSchema) {
