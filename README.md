@@ -12,6 +12,7 @@ This templates target use cases that official templates do not cover.
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 * [Spanner Bulk Delete](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpannerDelete.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
+* [BigQuery to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToDatastore.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [GCS Avro to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToDatastore.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
@@ -195,8 +196,7 @@ AvroToDatastore inserts avro files on GCS to Cloud Datastore.
 ### BigQueryToSpanner
 
 BigQueryToSpanner enables you to query from BigQuery and write results to specified Spanner table using template.
-Template parameters are same as SpannerToText.
-Spanner destination table must be created.
+Spanner destination table will be created if not exists.
 
 | Parameter       | Type   | Description                                        |
 |-----------------|--------|----------------------------------------------------|
@@ -208,25 +208,24 @@ Spanner destination table must be created.
 | mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
 | outputError     | String | GCS path to output error record as avro files.     |
 
-* Spanner output table must be created until start template.
-* Some BigQuery schema type will be converted to STRING (ex: NUMERIC, DATE -> STRING) by BigQuery.
+* You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
+* At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
 
 
 ### BigQueryToDatastore
 
 BigQueryToDatastore enables you to query from BigQuery and write results to specified Cloud Datastore kind using template.
-Template parameters are same as BigQueryToSpanner.
-Spanner destination table must be created.
 
-| Parameter   | Type   | Description                                          |
-|-------------|--------|------------------------------------------------------|
-| query       | String | SQL query to read record from BigQuery               |
-| projectId   | String | projectID for Datastore you will write query result. |
-| kind        | String | Cloud Datastore target kind name to store.           |
-| keyField    | String | Unique field name in query results from BigQuery.    |
+| Parameter              | Type   | Description                                          |
+|------------------------|--------|------------------------------------------------------|
+| query                  | String | SQL query to read record from BigQuery               |
+| projectId              | String | projectID for Datastore you will write query result. |
+| kind                   | String | Cloud Datastore target kind name to store.           |
+| keyField               | String | Unique field name in query results from BigQuery.    |
+| excludeFromIndexFields | String | (Optional) Field names to exclude from index.        |
 
-* Spanner output table must be created until start template.
-* Some BigQuery schema type will be converted to STRING (ex: NUMERIC, DATE -> STRING) by BigQuery.
+* You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
+* At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
 
 
 ### JdbcToAvro
