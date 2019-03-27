@@ -2,6 +2,7 @@ package net.orfeon.cloud.dataflow.util.converter;
 
 import com.google.cloud.Date;
 import com.google.cloud.spanner.Struct;
+import net.orfeon.cloud.dataflow.util.AvroSchemaUtil;
 import net.orfeon.cloud.dataflow.util.DummyDataSupplier;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -23,15 +24,18 @@ public class StructAndRecordConverterTest {
     @Test
     public void testSchema() {
         Struct struct1 = DummyDataSupplier.createSimpleStruct();
-        Schema schema = StructToRecordConverter.convertSchema(struct1);
-        System.out.println(schema);
+        //Schema schema1 = StructToRecordConverter.convertSchema(struct1);
+        Schema schema2 = AvroSchemaUtil.convertSchema(struct1);
+        //System.out.println(schema1);
+        System.out.println(schema2);
     }
 
     @Test
     public void testConvert() {
         Struct struct1 = DummyDataSupplier.createSimpleStruct();
         Struct struct2 = DummyDataSupplier.createNestedStruct(true);
-        Schema schema = StructToRecordConverter.convertSchema(struct2);
+        //Schema schema = StructToRecordConverter.convertSchema(struct2);
+        Schema schema = AvroSchemaUtil.convertSchema(struct2);
 
         // Test struct to record.
         GenericRecord r = StructToRecordConverter.convert(struct2, schema);
@@ -91,6 +95,11 @@ public class StructAndRecordConverterTest {
         Assert.assertArrayEquals(struct2.getDateList("adf").toArray(), struct3.getDateList("adf").toArray());
         Assert.assertArrayEquals(struct2.getLongList("amf").toArray(), struct3.getLongList("amf").toArray());
         Assert.assertArrayEquals(struct2.getTimestampList("atf").toArray(), struct3.getTimestampList("atf").toArray());
+    }
+
+    @Test
+    public void testConverts() {
+
     }
 
     private static int getEpochDays(Date date) {

@@ -3,9 +3,7 @@ package net.orfeon.cloud.dataflow.util.converter;
 import com.google.cloud.Date;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.Type;
-import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.joda.time.DateTime;
@@ -20,13 +18,6 @@ import java.util.stream.Collectors;
 public class StructToRecordConverter {
 
     private static final MutableDateTime EPOCH_DATETIME = new MutableDateTime(0, DateTimeZone.UTC);
-    private static final Schema NULLABLE_STRING = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
-    private static final Schema NULLABLE_BYTES = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.BYTES));
-    private static final Schema NULLABLE_BOOLEAN = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.BOOLEAN));
-    private static final Schema NULLABLE_LONG = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.LONG));
-    private static final Schema NULLABLE_DOUBLE = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.DOUBLE));
-    private static final Schema LOGICAL_DATE_TYPE = Schema.createUnion(Schema.create(Schema.Type.NULL), LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT)));
-    private static final Schema LOGICAL_TIMESTAMP_TYPE = Schema.createUnion(Schema.create(Schema.Type.NULL), LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG)));
 
     private StructToRecordConverter() {
 
@@ -38,90 +29,6 @@ public class StructToRecordConverter {
             setFieldValue(builder, field, struct);
         }
         return builder.build();
-    }
-
-    public static Schema convertSchema(Struct struct) {
-        SchemaBuilder.FieldAssembler<Schema> schemaFields = SchemaBuilder.record("root").fields();
-        for(final Type.StructField field : struct.getType().getStructFields()) {
-            schemaFields = addSchemaField(schemaFields, field);
-        }
-        return schemaFields.endRecord();
-    }
-
-    private static SchemaBuilder.FieldAssembler addSchemaField(
-            SchemaBuilder.FieldAssembler schemaField, Type.StructField field) {
-
-        final String fieldName = field.getName();
-        switch(field.getType().getCode()) {
-            case STRING:
-                return schemaField.optionalString(fieldName);
-            case BYTES:
-                return schemaField.optionalBytes(fieldName);
-            case INT64:
-                return schemaField.optionalLong(fieldName);
-            case FLOAT64:
-                return schemaField.optionalDouble(fieldName);
-            case BOOL:
-                return schemaField.optionalBoolean(fieldName);
-            case TIMESTAMP:
-                return schemaField.name(fieldName).type(LOGICAL_TIMESTAMP_TYPE).withDefault(null);
-            case DATE:
-                return schemaField.name(fieldName).type(LOGICAL_DATE_TYPE).withDefault(null);
-            case STRUCT:
-                SchemaBuilder.FieldAssembler<SchemaBuilder.FieldAssembler<Schema>> structField =
-                        schemaField.name(fieldName).type().optional().record(fieldName).fields();
-                for(final Type.StructField childField : field.getType().getStructFields()) {
-                    structField = addSchemaField(structField, childField);
-                }
-                return structField.endRecord();
-            case ARRAY:
-                if(Type.Code.STRUCT.equals(field.getType().getArrayElementType().getCode())) {
-                    SchemaBuilder.FieldAssembler<SchemaBuilder.FieldAssembler<Schema>> arrayField = schemaField
-                            .name(fieldName)
-                            .type()
-                            .optional()
-                            .array()
-                            .items()
-                            .record(fieldName)
-                            .fields();
-                    for(final Type.StructField childField : field.getType().getArrayElementType().getStructFields()) {
-                        arrayField = addSchemaField(arrayField, childField);
-                    }
-                    return arrayField.endRecord();
-                }
-                final Schema arrayElementSchema = convertTypeToAvroSchema(field.getType().getArrayElementType());
-                final Schema arraySchema = Schema.createUnion(
-                        Schema.create(Schema.Type.NULL),
-                        Schema.createArray(arrayElementSchema));
-                return schemaField.name(fieldName).type(arraySchema).withDefault(null);
-            default:
-                return schemaField;
-        }
-    }
-
-    private static Schema convertTypeToAvroSchema(Type type) {
-        switch(type.getCode()) {
-            case STRING:
-                return NULLABLE_STRING;
-            case BYTES:
-                return NULLABLE_BYTES;
-            case INT64:
-                return NULLABLE_LONG;
-            case FLOAT64:
-                return NULLABLE_DOUBLE;
-            case BOOL:
-                return NULLABLE_BOOLEAN;
-            case TIMESTAMP:
-                return LOGICAL_TIMESTAMP_TYPE;
-            case DATE:
-                return LOGICAL_DATE_TYPE;
-            case STRUCT:
-                return Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.RECORD));
-            case ARRAY:
-                return Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.ARRAY));
-            default:
-                return Schema.create(Schema.Type.NULL);
-        }
     }
 
     private static void setFieldValue(GenericRecordBuilder builder, Schema.Field field, Struct struct) {

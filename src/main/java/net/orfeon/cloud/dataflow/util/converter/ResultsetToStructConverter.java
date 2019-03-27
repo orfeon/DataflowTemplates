@@ -5,7 +5,9 @@ import com.google.cloud.Date;
 import com.google.cloud.Timestamp;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.ValueBinder;
+import org.apache.commons.compress.utils.IOUtils;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
@@ -18,7 +20,7 @@ public class ResultsetToStructConverter {
 
     }
 
-    public static Struct convert(final ResultSet resultSet) throws SQLException {
+    public static Struct convert(final ResultSet resultSet) throws SQLException, IOException {
         final ResultSetMetaData meta = resultSet.getMetaData();
         final int columnCount = meta.getColumnCount();
         Struct.Builder builder = Struct.newBuilder();
@@ -102,6 +104,13 @@ public class ResultsetToStructConverter {
                 case Types.ARRAY:
                     break;
                 case Types.BLOB:
+                    Blob blob = resultSet.getBlob(column);
+                    if(blob == null) {
+                        builder = binder.to((ByteArray)null);
+                        break;
+                    }
+                    byte[] bytes = IOUtils.toByteArray(blob.getBinaryStream());
+                    builder = binder.to(ByteArray.copyFrom(bytes));
                     break;
                 case Types.CLOB:
                     break;

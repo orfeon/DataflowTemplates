@@ -2,15 +2,14 @@ package net.orfeon.cloud.dataflow.util.converter;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
+import net.orfeon.cloud.dataflow.util.AvroSchemaUtil;
 import net.orfeon.cloud.dataflow.util.DummyGenericRecordGenerator;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -142,13 +141,17 @@ public class RecordAndTableRowTest {
                         if(Schema.Type.UNION.equals(type.getValueType().getType())) {
                             for(Schema childSchema : type.getValueType().getTypes()) {
                                 if(Schema.Type.UNION.equals(childSchema.getType())) {
+                                    assert childMapRow.get("value") == null;
+                                    continue;
+                                }
+                                if(!map.containsKey(new Utf8(childMapRow.get("key").toString()))) {
                                     continue;
                                 }
                                 switch (childSchema.getType()) {
                                     case INT:
                                         if(LogicalTypes.date().equals(childSchema.getLogicalType())) {
                                             final LocalDate localDate = LocalDate.ofEpochDay((Integer)map.get(new Utf8(childMapRow.get("key").toString())));
-                                            assert localDate.format(DateTimeFormatter.ISO_LOCAL_DATE).equals((childMapRow.get("value")));
+                                            assert localDate.format(DateTimeFormatter.ISO_LOCAL_DATE).equals(childMapRow.get("value"));
                                             break;
                                         }
                                 }
@@ -163,6 +166,12 @@ public class RecordAndTableRowTest {
                 break;
             case FIXED:
                 final GenericData.Fixed fixed = (GenericData.Fixed)record.get(field.name());
+                if(AvroSchemaUtil.isLogicalTypeDecimal(field.schema())) {
+                    final int scaleFixed = AvroSchemaUtil.getLogicalTypeDecimal(field.schema()).getScale();
+                    final BigDecimal bigDecimal = BigDecimal.valueOf(new BigInteger(fixed.bytes()).longValue(), scaleFixed);
+                    assert bigDecimal.equals(row.get(field.name()));
+                    break;
+                }
                 final ByteBuffer bf = ByteBuffer.wrap(fixed.bytes());
                 assert bf.equals(row.get(field.name()));
                 break;

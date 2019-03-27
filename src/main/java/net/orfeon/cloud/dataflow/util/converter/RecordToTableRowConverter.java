@@ -5,6 +5,7 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import net.orfeon.cloud.dataflow.util.AvroSchemaUtil;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -86,6 +87,10 @@ public class RecordToTableRowConverter {
         return map;
     }
 
+    public static TableSchema convertTableSchema(final com.google.cloud.bigquery.Schema schema) {
+        return null;
+    }
+
     // for BigQueryIO.Write.withSchemaFromView
     public static Map<String, String> convertTableSchema(final ValueProvider<String> output, final GenericRecord record) {
         return convertTableSchema(output, record.getSchema());
@@ -103,13 +108,15 @@ public class RecordToTableRowConverter {
         switch (schema.getType()) {
             case ENUM:
             case STRING:
+                if(AvroSchemaUtil.isSqlTypeDatetime(schema)) {
+                    return buildTableFieldSchema(fieldName, TableRowFieldType.DATETIME, mode);
+                } else if(AvroSchemaUtil.isSqlTypeGeography(schema)) {
+                    return buildTableFieldSchema(fieldName, TableRowFieldType.GEOGRAPHY, mode);
+                }
                 return buildTableFieldSchema(fieldName, TableRowFieldType.STRING, mode);
             case FIXED:
             case BYTES:
-                final Map<String,Object> props = schema.getObjectProps();
-                final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
-                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : 0;
-                if (LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
+                if(AvroSchemaUtil.isLogicalTypeDecimal(schema)) {
                     return buildTableFieldSchema(fieldName, TableRowFieldType.NUMERIC, mode);
                 }
                 return buildTableFieldSchema(fieldName, TableRowFieldType.BYTES, mode);
@@ -186,10 +193,7 @@ public class RecordToTableRowConverter {
                 return value.toString();
             case FIXED:
             case BYTES:
-                final Map<String,Object> props = schema.getObjectProps();
-                final int scale = props.containsKey("scale") ? Integer.valueOf(props.get("scale").toString()) : 0;
-                final int precision = props.containsKey("precision") ? Integer.valueOf(props.get("precision").toString()) : -1;
-                if(LogicalTypes.decimal(precision, scale).equals(schema.getLogicalType())) {
+                if(AvroSchemaUtil.isLogicalTypeDecimal(schema)) {
                     final byte[] bytes;
                     if(Schema.Type.FIXED.equals(schema.getType())) {
                         bytes = ((GenericData.Fixed)value).bytes();
@@ -199,6 +203,7 @@ public class RecordToTableRowConverter {
                     if(bytes.length == 0) {
                         return BigDecimal.valueOf(0, 0);
                     }
+                    final int scale = AvroSchemaUtil.getLogicalTypeDecimal(schema).getScale();
                     return BigDecimal.valueOf(new BigInteger(bytes).longValue(), scale);
                 }
                 if(Schema.Type.FIXED.equals(schema.getType())) {
