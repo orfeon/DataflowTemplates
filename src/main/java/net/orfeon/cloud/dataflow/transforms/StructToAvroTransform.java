@@ -67,10 +67,8 @@ public class StructToAvroTransform extends PTransform<PCollection<Struct>, Write
 
         }).withOutputTags(tagMain, TupleTagList.of(tagStruct)));
 
-        PTransform<PCollection<KV<String,Struct>>, PCollection<KV<String,Iterable<Struct>>>> a = Sample.fixedSizePerKey(1);
-
         PCollectionView<Map<String, Iterable<Struct>>> schemaView = records.get(tagStruct)
-                .apply("SampleStructPerKey", a)
+                .apply("SampleStructPerKey", Sample.fixedSizePerKey(1))
                 .apply("ViewAsMap", View.asMap());
 
         return records.get(tagMain)
