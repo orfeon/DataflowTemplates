@@ -12,6 +12,7 @@ This templates target use cases that official templates do not cover.
 * [Spanner to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpanner.java)
 * [Spanner Bulk Delete](src/main/java/net/orfeon/cloud/dataflow/templates/SpannerToSpannerDelete.java)
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
+* [BigQueryTable to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryTableToSpanner.java)
 * [BigQuery to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToDatastore.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [GCS Avro to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToDatastore.java)
@@ -201,6 +202,26 @@ Spanner destination table will be created if not exists.
 | Parameter       | Type   | Description                                        |
 |-----------------|--------|----------------------------------------------------|
 | query           | String | SQL query to read record from BigQuery             |
+| projectId       | String | projectID for Spanner you will write query result. |
+| instanceId      | String | Spanner instanceID you will write query result.    |
+| databaseId      | String | Spanner databaseID you will write query result.    |
+| table           | String | Spanner table name you will write query result.    |
+| mutationOp      | String | Spanner [insert policy](https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html). `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE` |
+| outputError     | String | GCS path to output error record as avro files.     |
+| primaryKeyFields| String | (Optional) Key field on destination Spanner table. (Required if use table auto generation) |
+
+* You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
+* At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
+
+
+### BigQueryTableToSpanner
+
+BigQueryTableToSpanner enables you to write BigQuery table records to specified Spanner table using template.
+Spanner destination table will be created if not exists.
+
+| Parameter       | Type   | Description                                        |
+|-----------------|--------|----------------------------------------------------|
+| inputTable      | String | BigQuery table to read record. format: {dataset}.{table} |
 | projectId       | String | projectID for Spanner you will write query result. |
 | instanceId      | String | Spanner instanceID you will write query result.    |
 | databaseId      | String | Spanner databaseID you will write query result.    |
