@@ -14,6 +14,7 @@ This templates target use cases that official templates do not cover.
 * [BigQuery to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToSpanner.java)
 * [BigQueryTable to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryTableToSpanner.java)
 * [BigQuery to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToDatastore.java)
+* [BigQuery to TFRecord](src/main/java/net/orfeon/cloud/dataflow/templates/BigQueryToTFRecord.java)
 * [GCS Avro to Spanner](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToSpanner.java)
 * [GCS Avro to Datastore](src/main/java/net/orfeon/cloud/dataflow/templates/AvroToDatastore.java)
 * [JDBC to GCS Avro](src/main/java/net/orfeon/cloud/dataflow/templates/JdbcToAvro.java)
@@ -245,6 +246,21 @@ BigQueryToDatastore enables you to query from BigQuery and write results to spec
 | kind                   | String | Cloud Datastore target kind name to store.           |
 | keyField               | String | Unique field name in query results from BigQuery.    |
 | excludeFromIndexFields | String | (Optional) Field names to exclude from index.        |
+
+* You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
+* At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
+
+
+### BigQueryToTFRecord
+
+BigQueryToTFRecord enables you to query from BigQuery and write results to specified GCS path as TFRecord format using template.
+
+| Parameter     | Type    | Description                                          |
+|---------------|---------|------------------------------------------------------|
+| query         | String  | SQL query to read record from BigQuery               |
+| output        | String  | GCS path to store TFRecord file.                     |
+| separateField | String  | (Optional) Field names to separate records.          |
+| parallelNum   | Integer | (Optional) Worker parallel num to generate dummy records.  |
 
 * You must enable [BigQuery Storage API](https://cloud.google.com/bigquery/docs/reference/storage/).
 * At this time, Worker requires high memory to use Storage API. If the process does not work, please increase the worker size.
