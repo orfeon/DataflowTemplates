@@ -1,0 +1,54 @@
+{
+  "name": "BigQueryTableToSpanner",
+  "description": "Pipeline to insert records to Spanner table from BigQuery table.",
+  "parameters": [
+  {
+    "name": "inputTable",
+    "label": "BigQuery input table",
+    "help_text": "format: {datasetID}.{table} or {projectID}.{datasetID}.{table}"
+  },
+  {
+    "name": "projectId",
+    "label": "Output Spanner Project ID (Google Cloud Project ID)",
+    "help_text": "Project ID Cloud Spanner to store is belong to."
+  },
+  {
+    "name": "instanceId",
+    "label": "Output Spanner Instance ID",
+    "help_text": "Cloud Spanner instance ID to store."
+  },
+  {
+    "name": "databaseId",
+    "label": "Output Database ID",
+    "help_text": "Cloud Spanner database ID to store."
+  },
+  {
+    "name": "table",
+    "label": "Output Spanner Table Name",
+    "help_text": "Cloud Spanner target table name to store."
+  },
+  {
+    "name": "outputError",
+    "label": "GCS path to output error record as avro files.",
+    "help_text": "Path and filename prefix for writing output avro files. ex: gs://MyBucket/xxx",
+    "regexes": ["^gs:\/\/[^\n\r]+$"]
+  },
+  {
+    "name": "mutationOp",
+    "label": "Spanner insert policy. `INSERT` or `UPDATE` or `REPLACE` or `INSERT_OR_UPDATE`",
+    "help_text": "Detail: https://googleapis.github.io/google-cloud-java/google-cloud-clients/apidocs/com/google/cloud/spanner/Mutation.Op.html"
+  },
+  {
+    "name": "primaryKeyFields",
+    "label": "Key field on destination Spanner table. (Required table auto generation)",
+    "help_text": "If destination Spanner table not exists, template will create the table using this field as key.",
+    "is_optional": true
+  },
+  {
+    "name": "parallelNum",
+    "label": "Parallel read num to request BigQuery Storage API.",
+    "help_text": "Default is 0 (auto decision).",
+    "is_optional": true
+  }
+  ]
+}
