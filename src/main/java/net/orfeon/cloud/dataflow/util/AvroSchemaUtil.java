@@ -129,7 +129,7 @@ public class AvroSchemaUtil {
         return LogicalTypes.decimal(precision, scale);
     }
 
-    private static Schema unnestUnion(Schema schema) {
+    public static Schema unnestUnion(Schema schema) {
         if(schema.getType().equals(Schema.Type.UNION)) {
             return schema.getTypes().stream()
                     .filter(s -> !s.getType().equals(Schema.Type.NULL))

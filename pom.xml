@@ -528,6 +528,12 @@
       <version>1.23</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.tensorflow</groupId>
+      <artifactId>proto</artifactId>
+      <version>1.13.1</version>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/io.opencensus/opencensus-api -->
     <dependency>
       <groupId>io.opencensus</groupId>
