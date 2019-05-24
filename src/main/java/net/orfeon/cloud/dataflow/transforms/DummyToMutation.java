@@ -406,7 +406,7 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
             } else if(fieldType.startsWith("ARRAY")) {
                 final String arrayType = fieldType.substring(fieldType.indexOf("<") + 1, fieldType.indexOf(">"));
                 final DummyGenerator elementGenerator = of(arrayType, fieldName, false, isNullable, range, randomRate);
-                return new ArrayDummyGenerator(fieldName, range, elementGenerator, isNullable, randomRate);
+                return new ArrayDummyGenerator(fieldName, elementGenerator, isNullable, randomRate);
             }
             throw new IllegalArgumentException(String.format("Illegal fieldType: %s, %s", fieldType, fieldName));
         }
@@ -417,7 +417,7 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
 
         static <T> List<T> generateValues(DummyGenerator generator, long value) {
             List<T> randomValues = new ArrayList<>();
-            for(int i=0; i<10; i++) {
+            for(int i=0; i<3; i++) {
                 final T randomValue = (T)generator.generateValue(value);
                 randomValues.add(randomValue);
             }
@@ -454,9 +454,7 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
             if(!isPrimary && DummyGenerator.randomNull(this.isNullable, this.randomRate)) {
                 return null;
             }
-            String randomString = range != null && range.size() > 0 ? range.get(random.nextInt(range.size())) : Hashing.sha512().hashLong(value).toString();
-            LOG.info(randomString);
-            randomString = this.isPrimary ? Long.toString(value) : randomString;
+            String randomString = range != null && range.size() > 0 ? range.get(random.nextInt(range.size())) : UUID.randomUUID().toString() + UUID.randomUUID().toString();
             return maxLength > randomString.length() ? randomString : randomString.substring(0, maxLength);
         }
 
@@ -707,16 +705,12 @@ public class DummyToMutation extends PTransform<PBegin, PCollection<Mutation>> {
     public static class ArrayDummyGenerator implements DummyGenerator {
 
         private final String fieldName;
-        private final int lengthMin;
-        private final int lengthMax;
         private final DummyGenerator elementGenerator;
         private final Boolean isNullable;
         private final int randomRate;
 
-        public ArrayDummyGenerator(String fieldName, List<String> range, DummyGenerator elementGenerator, Boolean isNullable, int randomRate) {
+        public ArrayDummyGenerator(String fieldName, DummyGenerator elementGenerator, Boolean isNullable, int randomRate) {
             this.fieldName = fieldName;
-            this.lengthMin = range != null && range.size() > 0 ? Integer.valueOf(range.get(0)) : 0;
-            this.lengthMax = range != null && range.size() > 1 ? Integer.valueOf(range.get(1)) : 100;
             this.elementGenerator = elementGenerator;
             this.isNullable = isNullable;
             this.randomRate = randomRate;
